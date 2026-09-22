@@ -6,8 +6,10 @@ Uso:
     python3 scripts/redistribute.py --dry-run  # mostra solo le modifiche
     python3 scripts/redistribute.py --report   # rigenera REDISTRIBUTION.md
 
-Il file di config e' la FONTE DI VERITA': agenti -> categorie/skill.
-Lo store (questa repo) e' il master; i runtime fanno symlink allo store.
+Modello generico: ogni harness nel config ha un `type` (back-end) + i suoi path.
+Aggiungere un harness path-based = solo una voce nel config (nessun codice nuovo).
+Serve codice nuovo solo se l'harness richiede la riscrittura di un proprio file di
+config (come il `type: openclaw`, che aggiorna agents.entries.<a>.skills).
 """
 import argparse
 import collections
@@ -19,43 +21,42 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONFIG_DEFAULT = os.path.join(ROOT, "config", "redistribution.yaml")
+IGNORE_DIRS = {".git", "_sources", "config", "scripts", "docs", "trash"}
 
 
+# ---------------------------------------------------------------- config/store
 def load_config(path):
     try:
         import yaml
     except ImportError:
-        sys.exit("Serve PyYAML: pip install pyyaml (oppure usa il venv del progetto).")
+        sys.exit("Serve PyYAML: pip install pyyaml")
     with open(path) as fh:
         return yaml.safe_load(fh)
 
 
-IGNORE = {".git", "_sources", "config", "scripts", "docs", "trash"}
-
-
 def categories(store):
     return [c for c in sorted(os.listdir(store))
-            if not c.startswith((".", "_")) and c not in IGNORE
+            if not c.startswith((".", "_")) and c not in IGNORE_DIRS
             and os.path.isdir(os.path.join(store, c))]
 
 
 def store_map(store):
-    mapping = {}
+    out = {}
     for cat in categories(store):
         for name in os.listdir(os.path.join(store, cat)):
-            mapping[name] = cat
-    return mapping
+            out[name] = cat
+    return out
 
 
 def expand(entries, cats, smap):
-    """Espande la lista di un agente. `cat:<nome>` = categoria intera; altrimenti skill."""
+    """`cat:<nome>` = categoria intera; altrimenti nome di skill puntuale."""
     out = []
     for e in entries or []:
         if e.startswith("cat:"):
             c = e[4:]
             if c not in cats:
                 sys.exit(f"Categoria sconosciuta nel config: '{c}'")
-            out += sorted([n for n, cc in smap.items() if cc == c])
+            out += [n for n, cc in smap.items() if cc == c]
         elif e in smap:
             out.append(e)
         else:
@@ -63,8 +64,9 @@ def expand(entries, cats, smap):
     return sorted(set(out))
 
 
-def sync_flat(target_dir, names, smap, store, dry=False, label=""):
-    """Symlink piatti <target_dir>/<skill> -> store/<cat>/<skill>."""
+# ------------------------------------------------------------------- back-end
+def apply_flat(target_dir, names, smap, store, dry=False):
+    """Symlink piatti: <target_dir>/<skill> -> <store>/<cat>/<skill>."""
     os.makedirs(target_dir, exist_ok=True)
     added = removed = 0
     for existing in list(os.listdir(target_dir)):
@@ -88,13 +90,13 @@ def sync_flat(target_dir, names, smap, store, dry=False, label=""):
             if not dry:
                 os.symlink(tgt, fp)
             added += 1
-    print(f"  [{label}] +{added} -{removed}  -> {target_dir}")
+    return added, removed
 
 
-def sync_hermes(target_dir, names, smap, store, dry=False):
-    """Hermes usa categorie: <target_dir>/<store_cat>/<skill>."""
+def apply_categorized(target_dir, names, smap, store, dry=False):
+    """Symlink per categoria: <target_dir>/<store_cat>/<skill> (layout Hermes)."""
     names = set(names)
-    removed = added = 0
+    added = removed = 0
     for cat in list(os.listdir(target_dir)):
         cp = os.path.join(target_dir, cat)
         if not os.path.isdir(cp):
@@ -106,61 +108,72 @@ def sync_hermes(target_dir, names, smap, store, dry=False):
                     os.remove(fp)
                 removed += 1
     for n in names:
-        if any(os.path.lexists(os.path.join(target_dir, c, n)) for c in os.listdir(target_dir)):
+        if any(os.path.lexists(os.path.join(target_dir, c, n))
+               for c in os.listdir(target_dir)):
             continue
         cat = smap[n]
         os.makedirs(os.path.join(target_dir, cat), exist_ok=True)
         if not dry:
             os.symlink(os.path.join(store, cat, n), os.path.join(target_dir, cat, n))
         added += 1
-    print(f"  [hermes] +{added} -{removed}  -> {target_dir}")
+    return added, removed
 
 
-def rewrite_openclaw(cfg_path, per_agent, all_store, dry=False):
-    """Riscrive agents.entries.<a>.skills preservando le skill bundled/native."""
+def apply_openclaw(hcfg, cats, smap, store, all_store, dry=False):
+    """Pool condiviso (flat) + riscrittura agents.entries.<a>.skills."""
+    per_agent = {a: expand(v, cats, smap) for a, v in hcfg.get("agents", {}).items()}
+    pool = sorted(set(sum(per_agent.values(), [])))
+    res = {}
+    for key in ("skills_dir", "library_dir"):
+        if hcfg.get(key):
+            res[key] = apply_flat(os.path.expanduser(hcfg[key]), pool, smap, store, dry)
+    cfg_path = os.path.expanduser(hcfg["config"])
     with open(cfg_path) as fh:
         cfg = json.load(fh)
     entries = cfg["agents"]["entries"]
     for agent, names in per_agent.items():
         if agent not in entries:
-            print(f"  [openclaw] WARN: agente '{agent}' non in openclaw.json")
+            print(f"    WARN: agente '{agent}' assente in {cfg_path}")
             continue
         bundled = [x for x in entries[agent].get("skills", []) if x not in all_store]
         final = bundled + sorted(set(names))
         if entries[agent].get("skills") != final:
             if not dry:
                 entries[agent]["skills"] = final
-            print(f"  [openclaw] {agent}: {len(bundled)} bundled + {len(set(names))} store")
-    if not dry:
+            res[f"agent:{agent}"] = (len(bundled), len(set(names)))
+    if not dry and any(k.startswith("agent:") for k in res):
         shutil.copy2(cfg_path, cfg_path + ".bak-redistribute")
         with open(cfg_path, "w") as fh:
             json.dump(cfg, fh, indent=2)
+    return res
 
 
+BACKENDS = {"flat": None, "categorized": None, "openclaw": None}
+
+
+# ---------------------------------------------------------------------- report
 def build_report(cfg, smap, cats):
-    home = os.path.expanduser("~")
-    agent_lists = cfg["agents"]
-    oc = {k.split(".", 1)[1]: expand(v, cats, smap) for k, v in agent_lists.items() if k.startswith("openclaw.")}
-    hermes = expand(agent_lists.get("hermes", []), cats, smap)
-    opencode = expand(agent_lists.get("opencode", []), cats, smap)
-    maka = expand(agent_lists.get("maka", []), cats, smap)
+    harnesses = cfg["harnesses"]
+    assigned = collections.defaultdict(set)
+    per_harness = {}
+    for hname, hcfg in harnesses.items():
+        if hcfg["type"] == "openclaw":
+            agents = {a: expand(v, cats, smap) for a, v in hcfg.get("agents", {}).items()}
+            per_harness[hname] = agents
+            for a, names in agents.items():
+                for n in names:
+                    assigned[n].add(f"{hname}.{a}")
+        else:
+            names = expand(hcfg.get("skills", []), cats, smap)
+            per_harness[hname] = {"*": names}
+            for n in names:
+                assigned[n].add(hname)
 
     def by_cat(names):
         g = collections.defaultdict(list)
         for n in names:
             g[smap[n]].append(n)
         return g
-
-    assigned = collections.defaultdict(set)
-    for a, ns in oc.items():
-        for n in ns:
-            assigned[n].add(f"OC.{a}")
-    for n in hermes:
-        assigned[n].add("Hermes")
-    for n in opencode:
-        assigned[n].add("OpenCode")
-    for n in maka:
-        assigned[n].add("Maka")
 
     ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
     L = ["# Skill Redistribution", "",
@@ -169,43 +182,35 @@ def build_report(cfg, smap, cats):
     for cat in cats:
         ns = sorted([n for n, c in smap.items() if c == cat])
         L.append(f"| `{cat}` | {len(ns)} | {', '.join(ns)} |")
-    L += ["", f"**Totale store: {len(smap)} skill**", "",
-          "## Agenti", "", "| Agente | # skill (store) |", "|---|---|"]
-    for a in ["coordinator", "coder", "researcher", "analyst", "writer"]:
-        L.append(f"| OpenClaw.{a} | {len(oc.get(a, []))} |")
-    L += [f"| Hermes | {len(hermes)} |", f"| OpenCode | {len(opencode)} |", f"| Maka | {len(maka)} |", ""]
-
-    L += ["## Dettaglio per agente", ""]
-    for a in ["coordinator", "coder", "researcher", "analyst", "writer"]:
-        L.append(f"### OpenClaw.{a}")
-        for cat, ns in sorted(by_cat(oc.get(a, [])).items()):
-            L.append(f"- **{cat}** ({len(ns)}): {', '.join(ns)}")
-        L.append("")
-    for label, names in [("Hermes", hermes), ("OpenCode", opencode), ("Maka", maka)]:
-        L.append(f"### {label}")
-        for cat, ns in sorted(by_cat(names).items()):
-            L.append(f"- **{cat}** ({len(ns)}): {', '.join(ns)}")
-        L.append("")
-
-    shared = {n: sorted(v) for n, v in assigned.items() if len(v) > 1}
+    L += ["", f"**Totale store: {len(smap)} skill**", "", "## Agenti", "", "| Agente | # |", "|---|---|"]
+    for hname, agents in per_harness.items():
+        for a, names in agents.items():
+            label = f"{hname}.{a}" if a != "*" else hname
+            L.append(f"| {label} | {len(names)} |")
+    L += ["", "## Dettaglio", ""]
+    for hname, agents in per_harness.items():
+        for a, names in agents.items():
+            L.append(f"### {hname}.{a}" if a != "*" else f"### {hname}")
+            for cat, ns in sorted(by_cat(names).items()):
+                L.append(f"- **{cat}** ({len(ns)}): {', '.join(ns)}")
+            L.append("")
     L += ["## Skill condivise", ""]
+    shared = {n: sorted(v) for n, v in assigned.items() if len(v) > 1}
     if shared:
-        bypair = collections.defaultdict(list)
+        gp = collections.defaultdict(list)
         for n, who in shared.items():
-            bypair[" + ".join(who)].append(n)
-        for pair, ns in bypair.items():
+            gp[" + ".join(who)].append(n)
+        for pair, ns in gp.items():
             L.append(f"- **{pair}** — {len(ns)}: {', '.join(sorted(ns))}")
     else:
         L.append("(nessuna)")
-    L += ["", "## Skill NON assegnate a nessuno", ""]
-    unassigned = [n for n in smap if n not in assigned]
-    L.append("**Nessuna**" if not unassigned else "\n".join(f"- `{smap[n]}/{n}`" for n in unassigned))
-    L += ["", "## Maka — profilo", "",
-          f"- Composition: `maka.interactive` · workspace `~/.config/Maka/workspaces/default`",
-          f"- Ruolo: specialista Android/mobile ({len(maka)} skill)"]
+    L += ["", "## Skill NON assegnate", ""]
+    un = [n for n in smap if n not in assigned]
+    L.append("**Nessuna**" if not un else "\n".join(f"- `{smap[n]}/{n}`" for n in un))
     return "\n".join(L) + "\n"
 
 
+# ------------------------------------------------------------------------ main
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", default=CONFIG_DEFAULT)
@@ -214,12 +219,10 @@ def main():
     args = ap.parse_args()
 
     cfg = load_config(args.config)
-    store = os.path.expanduser(cfg.get("store", ROOT))
+    store = os.path.expanduser(cfg["store"])
     smap = store_map(store)
     cats = categories(store)
     all_store = set(smap)
-    tgt = cfg["targets"]
-
     print(f"store: {store}  ({len(smap)} skill, {len(cats)} categorie)  dry_run={args.dry_run}")
 
     if args.report:
@@ -229,19 +232,22 @@ def main():
         print(f"report -> {out}")
         return
 
-    oc_lists = {k.split(".", 1)[1]: expand(v, cats, smap)
-                for k, v in cfg["agents"].items() if k.startswith("openclaw.")}
-    pool = sorted(set(sum(oc_lists.values(), [])))
-
-    sync_flat(os.path.expanduser(tgt["openclaw"]["skills_dir"]), pool, smap, store, args.dry_run, "openclaw")
-    sync_flat(os.path.expanduser(tgt["openclaw"]["library_dir"]), pool, smap, store, args.dry_run, "openclaw/lib")
-    rewrite_openclaw(os.path.expanduser(tgt["openclaw"]["config"]), oc_lists, all_store, args.dry_run)
-    sync_hermes(os.path.expanduser(tgt["hermes"]["skills_dir"]),
-                expand(cfg["agents"]["hermes"], cats, smap), smap, store, args.dry_run)
-    sync_flat(os.path.expanduser(tgt["opencode"]["skills_dir"]),
-              expand(cfg["agents"]["opencode"], cats, smap), smap, store, args.dry_run, "opencode")
-    sync_flat(os.path.expanduser(tgt["maka"]["skills_dir"]),
-              expand(cfg["agents"]["maka"], cats, smap), smap, store, args.dry_run, "maka")
+    for hname, hcfg in cfg["harnesses"].items():
+        htype = hcfg["type"]
+        if htype == "flat":
+            a, r = apply_flat(os.path.expanduser(hcfg["skills_dir"]),
+                              expand(hcfg["skills"], cats, smap), smap, store, args.dry_run)
+            print(f"  [{hname}:flat] +{a} -{r}")
+        elif htype == "categorized":
+            a, r = apply_categorized(os.path.expanduser(hcfg["skills_dir"]),
+                                     expand(hcfg["skills"], cats, smap), smap, store, args.dry_run)
+            print(f"  [{hname}:categorized] +{a} -{r}")
+        elif htype == "openclaw":
+            res = apply_openclaw(hcfg, cats, smap, store, all_store, args.dry_run)
+            for k, v in res.items():
+                print(f"  [{hname}:{k}] {v}")
+        else:
+            sys.exit(f"type sconosciuto: '{htype}' (harness {hname})")
     print("OK")
 
 

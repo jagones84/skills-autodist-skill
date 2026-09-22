@@ -1,4 +1,22 @@
+# --- operativo ---
 trash/
 python-dataviz/
-*.bak-*
 __pycache__/
+*.bak-*
+*.bak
+
+# --- segreti: MAI committare (difensivo) ---
+.env
+.env.*
+*.env
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+id_rsa*
+id_ed25519*
+credentials*.json
+*credential*.json
+*token*.json
+secrets/
