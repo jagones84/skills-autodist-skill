@@ -1,2 +1,4 @@
 trash/
 python-dataviz/
+*.bak-*
+__pycache__/
