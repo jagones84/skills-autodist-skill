@@ -96,7 +96,7 @@ def apply_flat(target_dir, names, smap, store, dry=False):
 def apply_categorized(target_dir, names, smap, store, dry=False):
     """Symlink per categoria: <target_dir>/<store_cat>/<skill> (layout Hermes)."""
     names = set(names)
-    added = removed = 0
+    added = removed = fixed = 0
     for cat in list(os.listdir(target_dir)):
         cp = os.path.join(target_dir, cat)
         if not os.path.isdir(cp):
@@ -108,15 +108,25 @@ def apply_categorized(target_dir, names, smap, store, dry=False):
                     os.remove(fp)
                 removed += 1
     for n in names:
-        if any(os.path.lexists(os.path.join(target_dir, c, n))
-               for c in os.listdir(target_dir)):
-            continue
-        cat = smap[n]
-        os.makedirs(os.path.join(target_dir, cat), exist_ok=True)
-        if not dry:
-            os.symlink(os.path.join(store, cat, n), os.path.join(target_dir, cat, n))
-        added += 1
-    return added, removed
+        want = os.path.join(store, smap[n], n)
+        found = None
+        for c in os.listdir(target_dir):
+            fp = os.path.join(target_dir, c, n)
+            if os.path.lexists(fp):
+                found = fp
+                break
+        if found is None:
+            cat = smap[n]
+            os.makedirs(os.path.join(target_dir, cat), exist_ok=True)
+            if not dry:
+                os.symlink(want, os.path.join(target_dir, cat, n))
+            added += 1
+        elif os.path.islink(found) and os.readlink(found) != want:
+            if not dry:  # symlink punta al posto sbagliato o dangling: ripara
+                os.remove(found)
+                os.symlink(want, found)
+            fixed += 1
+    return added + fixed, removed
 
 
 def apply_openclaw(hcfg, cats, smap, store, all_store, dry=False):

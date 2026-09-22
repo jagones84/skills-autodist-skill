@@ -6,7 +6,7 @@ Le skill reali vivono qui (versionate); ogni runtime le vede via **symlink** all
 ## Struttura
 
 ```
-Skills/
+skills-store/
 ├── config/redistribution.yaml   # FONTE DI VERITA': agenti -> categorie/skill
 ├── scripts/redistribute.py      # applica la redistribuzione (idempotente) + report
 ├── REDISTRIBUTION.md            # mappa generata (da --report)
