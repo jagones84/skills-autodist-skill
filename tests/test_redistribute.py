@@ -62,7 +62,8 @@ def test_apply_flat_creates_symlinks_and_is_idempotent(tmp_path):
     d = tmp_path / "flat"
     assert R.apply_flat(str(d), ["a", "b"], smap, str(store)) == (2, 0)
     assert (d / "a").is_symlink()
-    assert os.readlink(d / "a") == str(store / "dev" / "a")
+    assert not os.path.isabs(os.readlink(d / "a"))   # relativo: sopravvive ai move
+    assert os.path.exists(d / "a")                    # risolve
     assert R.apply_flat(str(d), ["a", "b"], smap, str(store)) == (0, 0)
 
 
@@ -87,7 +88,8 @@ def test_apply_categorized_places_and_repairs(tmp_path):
     os.symlink(str(tmp_path / "wrong"), d / "dev" / "a")
     added, removed = R.apply_categorized(str(d), ["a"], smap, str(store))
     assert added == 1
-    assert os.readlink(d / "dev" / "a") == str(store / "dev" / "a")
+    assert not os.path.isabs(os.readlink(d / "dev" / "a"))  # relativo
+    assert os.path.exists(d / "dev" / "a")
 
 
 # ---------------------------------------------------- helper: rewrite_json_list
@@ -434,5 +436,69 @@ def test_main_adopt_end_to_end(tmp_path, monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "newbie" in out
     assert (store / "dev" / "newbie" / "SKILL.md").is_file()
+
+
+# ------------------------------------------------------- diff: link rotto
+def test_diff_reports_broken_link_as_missing(tmp_path):
+    store = make_store(tmp_path)
+    smap, cats = R.store_map(str(store)), R.categories(str(store))
+    d = tmp_path / "flat"
+    d.mkdir()
+    os.symlink("/nonexistent/vecchio-store/a", d / "a")   # link ROTTO, nome valido
+    cfg = {"store": str(store), "harnesses": {
+        "f": {"type": "flat", "skills_dir": str(d), "skills": ["a"]}}}
+    text = "\n".join(R.diff_config(cfg, str(store), smap, cats, set(smap)))
+    assert "+ a" in text          # un link rotto NON conta come presente
+
+
+# ------------------------------------------------------------------- repair
+def test_repair_dir_fixes_broken_link_and_is_idempotent(tmp_path):
+    store = make_store(tmp_path)
+    smap = R.store_map(str(store))
+    d = tmp_path / "flat"
+    d.mkdir()
+    os.symlink("/nonexistent/vecchio/a", d / "a")          # rotto
+    assert R.repair_dir(str(d), smap, str(store)) == 1
+    assert os.path.exists(d / "a")
+    assert not os.path.isabs(os.readlink(d / "a"))         # riparato RELATIVO
+    assert R.repair_dir(str(d), smap, str(store)) == 0     # idempotente
+
+
+def test_repair_dir_dry_run_writes_nothing(tmp_path):
+    store = make_store(tmp_path)
+    smap = R.store_map(str(store))
+    d = tmp_path / "flat"
+    d.mkdir()
+    os.symlink("/nonexistent/vecchio/a", d / "a")
+    assert R.repair_dir(str(d), smap, str(store), dry=True) == 1
+    assert not os.path.exists(d / "a")                     # non riparato davvero
+
+
+def test_repair_dir_leaves_native_and_unrelated(tmp_path):
+    store = make_store(tmp_path)
+    smap = R.store_map(str(store))
+    d = tmp_path / "flat"
+    d.mkdir()
+    (d / "nativa").mkdir()                                  # cartella nativa
+    os.symlink("/nonexistent/altro/x", d / "x")            # nome NON nello store
+    assert R.repair_dir(str(d), smap, str(store)) == 0
+    assert (d / "nativa").is_dir()
+    assert not os.path.exists(d / "x")                      # lasciato com'e'
+
+
+def test_main_repair_end_to_end(tmp_path, monkeypatch, capsys):
+    store = make_store(tmp_path)
+    d = tmp_path / "flat"
+    d.mkdir()
+    os.symlink("/nonexistent/vecchio/a", d / "a")
+    cfgf = tmp_path / "cfg.yaml"
+    cfgf.write_text("version: 2\n" f"store: {store}\n" "harnesses:\n"
+                    "  h:\n    type: flat\n" f"    skills_dir: {d}\n"
+                    "    skills: [a]\n")
+    monkeypatch.setattr(sys, "argv", ["redistribute.py", "--config", str(cfgf), "--repair"])
+    R.main()
+    out = capsys.readouterr().out
+    assert "riparati" in out.lower()
+    assert os.path.exists(d / "a")
 
 
