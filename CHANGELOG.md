@@ -2,6 +2,17 @@
 
 Tutte le modifiche rilevanti di questa repo. Formato: [Keep a Changelog](https://keepachangelog.com/), versioning [SemVer](https://semver.org/).
 
+## [1.0.2] - 2026-09-23
+
+### Fixed
+- Smesso di tracciare file non-sorgente: `node_modules/` (548 file), backup `*.bak-*`/`*.bak` (6)
+  e `__pycache__/*.pyc` (4). Rimossi dal tracking (restano su disco) e coperti dal `.gitignore`.
+
+### Changed
+- Symlink delle skill esterne convertiti da target assoluti (`/home/...`) a relativi (`../../...`),
+  come `_sources/`: nessun path locale nel repo, target invariato.
+- `.gitignore` esteso con `node_modules/`, `.venv/`, `venv/`.
+
 ## [1.0.1] - 2026-09-23
 
 ### Fixed

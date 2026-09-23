@@ -1,6 +1,9 @@
 # --- operativo ---
 trash/
 python-dataviz/
+node_modules/
+.venv/
+venv/
 __pycache__/
 *.bak-*
 *.bak
