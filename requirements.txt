@@ -1,0 +1,5 @@
+# Runtime
+PyYAML>=6.0
+
+# Test / sviluppo
+pytest>=7.0
