@@ -1,0 +1,22 @@
+# Template GENERICO: harness multi-agente (tipo OpenClaw).
+# Nessun segreto: solo path e nomi di agenti. Adatta i path alla tua installazione.
+#
+#   cp examples/templates/openclaw.yaml ~/mio-openclaw.yaml   # poi modifica
+#   python3 scripts/redistribute.py --config ~/mio-openclaw.yaml --dry-run
+version: 2
+
+store: ~/skills-store
+
+harnesses:
+  openclaw:
+    type: openclaw
+    skills_dir:  ~/.openclaw/skills                # pool condiviso (symlink piatti)
+    library_dir: ~/.openclaw/workspace/skills      # libreria dei sorgenti
+    config:      ~/.openclaw/openclaw.json         # qui viene riscritto agents.entries.<a>.skills
+    preserve: not_in_store                         # tiene le skill bundled/native
+    agents:
+      coordinator: [cat:ops, cat:meta]
+      coder:       [cat:dev]
+      researcher:  [cat:research]
+      analyst:     [cat:data]
+      writer:      [cat:media]

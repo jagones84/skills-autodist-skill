@@ -2,6 +2,23 @@
 
 Tutte le modifiche rilevanti di questa repo. Formato: [Keep a Changelog](https://keepachangelog.com/), versioning [SemVer](https://semver.org/).
 
+## [1.3.0] - 2026-09-23
+
+### Added
+- `examples/README.md`: guida al **primo avvio** (demo in 2 minuti, output reale, anatomia
+  del config, troubleshooting).
+- `examples/templates/`: config generici **pronti da copiare e senza segreti** per OpenClaw
+  (multi-agente), Hermes (per-categoria) e un coding agent (flat + json_list).
+
+### Changed
+- README: link alla guida in `examples/README.md` e ai template generici.
+
+## [1.2.1] - 2026-09-23
+
+### Changed
+- `.gitignore`: tiene esplicitamente i **template** (`!.env.template`, `!*.example*`) mentre
+  ignora config locali e segreti.
+
 ## [1.2.0] - 2026-09-23
 
 ### Added

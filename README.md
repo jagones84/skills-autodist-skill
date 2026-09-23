@@ -15,6 +15,8 @@ attribuzione. Per l'uso **commerciale** serve una licenza separata (vedi `LICENS
 
 ## Quick start (demo autosufficiente)
 
+Guida al primo avvio: **[`examples/README.md`](examples/README.md)**.
+
 ```bash
 pip install -r requirements.txt
 bash examples/run-demo.sh --dry-run     # anteprima
@@ -23,7 +25,7 @@ python3 -m pytest tests -q              # 14 test
 ```
 
 Il demo usa lo store `examples/store` (2 skill finte) e scrive in `examples/out/`:
-**non tocca `$HOME`**.
+**non tocca `$HOME`**. Template generici (OpenClaw/Hermes/coding agent) in `examples/templates/`.
 
 ## Backend
 

@@ -1,0 +1,17 @@
+# Template GENERICO: harness con layout per-categoria (tipo Hermes).
+# Nessun segreto: solo path. Adatta path e categorie.
+#
+#   cp examples/templates/hermes.yaml ~/mio-hermes.yaml   # poi modifica
+#   python3 scripts/redistribute.py --config ~/mio-hermes.yaml --dry-run
+version: 2
+
+store: ~/skills-store
+
+harnesses:
+  hermes:
+    type: categorized
+    skills_dir: ~/.hermes/skills        # -> ~/.hermes/skills/<categoria>/<skill>
+    skills:
+      - cat:dev
+      - cat:research
+      - cat:ops

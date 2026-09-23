@@ -1,0 +1,29 @@
+# Template GENERICO: un coding agent a directory piatta + un secondo agent che
+# tiene le sue skill dentro un file JSON. Nessun segreto.
+#
+#   cp examples/templates/coding-agent.yaml ~/mio-config.yaml   # poi modifica
+#   python3 scripts/redistribute.py --config ~/mio-config.yaml --dry-run
+version: 2
+
+store: ~/skills-store
+
+harnesses:
+
+  # (1) directory piatta di skill
+  my-coding-agent:
+    type: flat
+    skills_dir: ~/.config/my-coding-agent/skills
+    skills: [cat:dev]
+
+  # (2) la lista delle skill sta in un file JSON di config (nessun codice richiesto).
+  #     `pointer` = dot-path della lista; l'etichetta e' il penultimo segmento.
+  my-other-agent:
+    type: json_list
+    file: ~/.config/my-other-agent/config.json
+    preserve: not_in_store        # tiene le voci non gestite dallo store
+    backup: true                  # crea <file>.bak-redistribute prima di scrivere
+    lists:
+      - pointer: agents.entries.main.skills
+        skills: [cat:dev]
+      - pointer: agents.entries.docs.skills
+        skills: [cat:research]
