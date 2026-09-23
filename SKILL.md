@@ -19,9 +19,10 @@ approva, il motore esegue.** Non inventare mapping e non applicare senza approva
 1. ispeziona   -> leggi lo store + gli harness presenti
 2. proponi     -> scrivi una mappa skill -> harness (mostrala all'utente)
 3. approva     -> l'utente conferma o corregge
-4. dry-run     -> `--dry-run` (non scrive)
-5. applica     -> `--config ...`  (l'engine crea backup `<file>.bak-redistribute`)
-6. verifica    -> nessun symlink rotto; `--report` aggiornato
+4. valida      -> `--validate` (il config e' sensato? non scrive)
+5. anteprima   -> `--diff` e/o `--dry-run` (non scrivono)
+6. applica     -> `--config ...`  (l'engine crea backup `<file>.bak-redistribute`)
+7. verifica    -> nessun symlink rotto; `--report` aggiornato
 ```
 
 ## 1) Ispeziona
@@ -60,16 +61,18 @@ openclaw.coordinator<- cat:ops, cat:meta
 hermes              <- cat:research, cat:media
 ```
 
-## 3-5) Applica con approvazione
+## 3-6) Valida, anteprima e applica
 
 ```bash
-python3 scripts/redistribute.py --config <config> --dry-run   # mostra +/- per harness
-python3 scripts/redistribute.py --config <config>             # applica
+python3 scripts/redistribute.py --config <config> --validate   # errori di config? exit 1 se invalido
+python3 scripts/redistribute.py --config <config> --diff       # modifiche voce per voce (+/-)
+python3 scripts/redistribute.py --config <config> --dry-run    # conteggi (+/-) per harness
+python3 scripts/redistribute.py --config <config>              # applica
 ```
 
 Non toccare a mano i symlink: li gestisce il motore (idempotente; ripara anche i link rotti).
 
-## 6) Verifica
+## 7) Verifica
 
 ```bash
 python3 scripts/redistribute.py --config <config> --report     # rigenera la mappa

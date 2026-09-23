@@ -8,7 +8,8 @@ dell'harness (`json_list`, `openclaw`).
 Due livelli, di proposito separati:
 
 1. **Motore deterministico** — `scripts/redistribute.py`. Applica *esattamente* il config scritto
-   da te. **Nessun LLM nel loop.** Idempotente; `--dry-run` non scrive nulla; `--report` genera la mappa.
+   da te. **Nessun LLM nel loop.** Idempotente. `--dry-run` (conteggi), `--diff` (modifiche **voce per
+   voce**) e `--validate` (controlla il config) **non scrivono nulla**; `--report` genera la mappa.
 2. **Livello agente** — `SKILL.md`. Un LLM legge lo store e i tuoi harness, **propone** la mappa
    skill→harness, ti fa **approvare**, poi lancia il motore. Autonomia nella *proposta*,
    determinismo nell'*esecuzione*.
@@ -22,10 +23,14 @@ Guida al primo avvio: **[`examples/README.md`](examples/README.md)**.
 
 ```bash
 pip install -r requirements.txt
-bash examples/run-demo.sh --dry-run     # anteprima
+bash examples/run-demo.sh --dry-run     # anteprima (semina examples/out/)
 bash examples/run-demo.sh               # applica (scrive solo in examples/out/)
-python3 -m pytest tests -q              # 14 test
+python3 scripts/redistribute.py --validate --config examples/redistribution.example.yaml
+python3 scripts/redistribute.py --diff     --config examples/redistribution.example.yaml
+python3 -m pytest tests -q              # 24 test
 ```
+
+Comandi dalla **root del repo** (lo store d'esempio usa percorsi relativi).
 
 Il demo usa lo store `examples/store` (2 skill finte) e scrive in `examples/out/`:
 **non tocca `$HOME`**. Template generici (OpenClaw/Hermes/coding agent) in `examples/templates/`.
@@ -56,6 +61,17 @@ harnesses:
 Selezione delle skill: `cat:<categoria>` = categoria intera; nome nudo = skill puntuale.
 Esempio completo e commentato: `examples/redistribution.example.yaml`.
 
+## Comandi
+
+| Comando | Effetto |
+|---|---|
+| `python3 scripts/redistribute.py` | applica il config (idempotente; backup dei JSON prima di riscriverli) |
+| `--dry-run` | conteggi `(aggiunte, rimosse)` per target — **non scrive** |
+| `--diff` | modifiche **voce per voce** (`+`/`-`) — **non scrive** |
+| `--validate` | valida il config; **exit 1** con l'elenco errori se invalido — **non scrive** |
+| `--report` | rigenera `REDISTRIBUTION.md` |
+| `--config <file>` | usa un config diverso da `config/redistribution.yaml` |
+
 ## Dove stanno le skill (importante)
 
 Le categorie dello store nella root (`dev/`, `ops/`, `android/`, ...) e `_sources/` sono
@@ -71,12 +87,13 @@ aspetta la tua approvazione, poi esegue `--dry-run` e infine applica.
 ## Test
 
 ```bash
-python3 -m pytest tests -q
+python3 -m pytest tests -q                    # 24 test
 ```
 
 Coprono i backend su store sintetici (nessuna scrittura fuori da `tmp`): symlink
 flat/categorized, `json_list` (preserve + idempotenza), preset openclaw, registry,
-report e `--dry-run` che non scrive.
+report, `--dry-run` che non scrive, `--validate` (ok / errori / exit code) e
+`--diff` (aggiunte e rimosse voce per voce, onorando `preserve`).
 
 ## Struttura
 
@@ -84,7 +101,7 @@ report e `--dry-run` che non scrive.
 skills-autodist-skill/
 ├── SKILL.md                         # livello agente (llm-driven, con approvazione)
 ├── scripts/redistribute.py          # il motore (registry di backend)
-├── tests/test_redistribute.py       # 14 test
+├── tests/test_redistribute.py       # 24 test
 ├── examples/
 │   ├── README.md                    # guida al primo avvio
 │   ├── redistribution.example.yaml  # config d'esempio eseguibile

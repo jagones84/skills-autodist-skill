@@ -222,3 +222,128 @@ def test_openclaw_preset_honors_preserve_none(tmp_path):
     assert json.loads(cfg.read_text())["agents"]["entries"]["coder"]["skills"] == ["a", "b"]
 
 
+# --------------------------------------------------------------- validate_config
+def test_validate_config_ok_returns_no_errors(tmp_path):
+    store = make_store(tmp_path)
+    smap, cats = R.store_map(str(store)), R.categories(str(store))
+    cfg = {"version": 2, "store": str(store), "harnesses": {
+        "f": {"type": "flat", "skills_dir": str(tmp_path / "f"), "skills": ["a"]},
+        "c": {"type": "categorized", "skills_dir": str(tmp_path / "c"), "skills": ["cat:dev"]},
+    }}
+    assert R.validate_config(cfg, str(store), smap, cats) == []
+
+
+def test_validate_config_flags_unknown_type_and_refs(tmp_path):
+    store = make_store(tmp_path)
+    smap, cats = R.store_map(str(store)), R.categories(str(store))
+    cfg = {"version": 2, "store": str(store), "harnesses": {
+        "x": {"type": "ghost"},
+        "f": {"type": "flat", "skills_dir": str(tmp_path / "f"),
+              "skills": ["ghost-skill", "cat:nope"]},
+    }}
+    errs = R.validate_config(cfg, str(store), smap, cats)
+    assert any("type sconosciuto" in e for e in errs)
+    assert any("Skill sconosciuta" in e and "ghost-skill" in e for e in errs)
+    assert any("Categoria sconosciuta" in e and "nope" in e for e in errs)
+
+
+def test_validate_config_flags_missing_required_keys(tmp_path):
+    store = make_store(tmp_path)
+    smap, cats = R.store_map(str(store)), R.categories(str(store))
+    cfg = {"version": 2, "store": str(store), "harnesses": {
+        "f": {"type": "flat"},
+        "j": {"type": "json_list"},
+        "o": {"type": "openclaw"},
+    }}
+    joined = "\n".join(R.validate_config(cfg, str(store), smap, cats))
+    assert "skills_dir" in joined
+    assert "file" in joined and "pointer" in joined
+    assert "config" in joined
+
+
+def test_validate_config_flags_bad_store_and_harnesses(tmp_path):
+    joined = "\n".join(R.validate_config({}, str(tmp_path / "missing"), {}, []))
+    assert "store" in joined
+    assert "harnesses" in joined
+
+
+def test_validate_config_flags_missing_target_files(tmp_path):
+    store = make_store(tmp_path)
+    smap, cats = R.store_map(str(store)), R.categories(str(store))
+    cfg = {"version": 2, "store": str(store), "harnesses": {
+        "j": {"type": "json_list", "file": str(tmp_path / "nope.json"),
+              "pointer": "agents.entries.c.skills", "skills": ["a"]},
+        "o": {"type": "openclaw", "config": str(tmp_path / "nope2.json"),
+              "skills_dir": str(tmp_path / "p"), "agents": {"coder": ["a"]}},
+    }}
+    joined = "\n".join(R.validate_config(cfg, str(store), smap, cats))
+    assert "inesistente" in joined
+
+
+# ------------------------------------------------------------------- diff_config
+def test_diff_config_flat_reports_add_and_remove(tmp_path):
+    store = make_store(tmp_path)
+    smap, cats = R.store_map(str(store)), R.categories(str(store))
+    d = tmp_path / "flat"
+    d.mkdir()
+    os.symlink(str(store / "dev" / "a"), d / "a")
+    os.symlink(str(store / "ops" / "c"), d / "c")
+    cfg = {"store": str(store), "harnesses": {
+        "f": {"type": "flat", "skills_dir": str(d), "skills": ["a", "b"]}}}
+    text = "\n".join(R.diff_config(cfg, str(store), smap, cats, set(smap)))
+    assert "+ b" in text
+    assert "- c" in text
+    assert "+ a" not in text
+
+
+def test_diff_config_json_keeps_bundled_and_reports_store_changes(tmp_path):
+    store = make_store(tmp_path)
+    smap, cats = R.store_map(str(store)), R.categories(str(store))
+    f = tmp_path / "cfg.json"
+    f.write_text(json.dumps({"agents": {"entries": {"c": {"skills": ["bundled", "a"]}}}}))
+    cfg = {"store": str(store), "harnesses": {
+        "j": {"type": "json_list", "file": str(f), "preserve": "not_in_store",
+              "lists": [{"pointer": "agents.entries.c.skills", "skills": ["b"]}]}}}
+    text = "\n".join(R.diff_config(cfg, str(store), smap, cats, set(smap)))
+    assert "+ b" in text
+    assert "- a" in text
+    assert "- bundled" not in text
+
+
+def test_diff_config_reports_no_changes(tmp_path):
+    store = make_store(tmp_path)
+    smap, cats = R.store_map(str(store)), R.categories(str(store))
+    d = tmp_path / "flat"
+    d.mkdir()
+    for n in ("a", "b"):
+        os.symlink(str(store / smap[n] / n), d / n)
+    cfg = {"store": str(store), "harnesses": {
+        "f": {"type": "flat", "skills_dir": str(d), "skills": ["a", "b"]}}}
+    lines = R.diff_config(cfg, str(store), smap, cats, set(smap))
+    assert any("nessuna modifica" in ln for ln in lines)
+
+
+# ------------------------------------------------------------------- CLI nuova
+def test_main_validate_exits_nonzero_on_bad_config(tmp_path, monkeypatch):
+    store = make_store(tmp_path)
+    cfgf = tmp_path / "cfg.yaml"
+    cfgf.write_text("version: 2\n" f"store: {store}\n" "harnesses:\n"
+                    "  h:\n    type: ghost\n")
+    monkeypatch.setattr(sys, "argv", ["redistribute.py", "--config", str(cfgf), "--validate"])
+    with pytest.raises(SystemExit) as ei:
+        R.main()
+    assert ei.value.code == 1  # non 2 (errore argparse): la validazione ha trovato errori
+
+
+def test_main_diff_writes_nothing(tmp_path, monkeypatch):
+    store = make_store(tmp_path)
+    d = tmp_path / "flat"
+    cfgf = tmp_path / "cfg.yaml"
+    cfgf.write_text("version: 2\n" f"store: {store}\n" "harnesses:\n"
+                    "  h:\n    type: flat\n" f"    skills_dir: {d}\n"
+                    "    skills: [a, b]\n")
+    monkeypatch.setattr(sys, "argv", ["redistribute.py", "--config", str(cfgf), "--diff"])
+    R.main()
+    assert not d.exists()
+
+
