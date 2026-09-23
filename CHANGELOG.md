@@ -2,6 +2,21 @@
 
 Tutte le modifiche rilevanti di questa repo. Formato: [Keep a Changelog](https://keepachangelog.com/), versioning [SemVer](https://semver.org/).
 
+## [1.7.0] - 2026-09-23
+
+### Added
+- **`--repair`**: ripara i **symlink rotti o mal puntati** degli harness (flat/categorized/openclaw),
+  ri-puntandoli al target corretto dello store. `--dry-run` mostra quanti ne riparerebbe senza scrivere;
+  idempotente (a regime: 0). Non tocca file/cartelle native ne' link estranei allo store.
+
+### Changed
+- **Symlink RELATIVI**: i backend `flat`/`categorized` (e i pool di `openclaw`) creano link **relativi**
+  invece che assoluti → store e harness restano collegati se si sposta l'**albero** (home/root/mount).
+  *Nota*: rinominare **solo la cartella dello store** li rompe comunque → per quello c'e' `--repair`.
+- `--diff`: un symlink **rotto** (nome giusto, target sbagliato) non conta piu' come "presente",
+  quindi viene segnalato come da creare.
+- Test: **37** (erano 32).
+
 ## [1.6.0] - 2026-09-23
 
 ### Added

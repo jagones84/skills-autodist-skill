@@ -18,6 +18,7 @@ Uso:
     python3 scripts/redistribute.py --dry-run  # mostra i conteggi delle modifiche (non scrive)
     python3 scripts/redistribute.py --diff     # mostra le modifiche voce per voce (non scrive)
     python3 scripts/redistribute.py --validate # valida il config, nessuna scrittura (exit 1 se errato)
+    python3 scripts/redistribute.py --repair   # ripara i symlink rotti/mal puntati degli harness
     python3 scripts/redistribute.py --adopt <src> --cat <cat>  # mette una skill nello store (copy|link)
     python3 scripts/redistribute.py --report   # rigenera REDISTRIBUTION.md
 """
@@ -144,17 +145,18 @@ def apply_flat(target_dir, names, smap, store, dry=False):
     for n in names:
         fp = os.path.join(target_dir, n)
         tgt = os.path.join(store, smap[n], n)
+        rel = os.path.relpath(tgt, target_dir)   # link RELATIVO: sopravvive ai move
         if os.path.islink(fp):
-            if os.readlink(fp) != tgt:
+            if os.readlink(fp) != rel:
                 if not dry:
                     os.remove(fp)
-                    os.symlink(tgt, fp)
+                    os.symlink(rel, fp)
                 added += 1
         elif os.path.exists(fp):
             continue  # directory nativa: non tocchiamo
         else:
             if not dry:
-                os.symlink(tgt, fp)
+                os.symlink(rel, fp)
             added += 1
     return added, removed
 
@@ -175,7 +177,8 @@ def apply_categorized(target_dir, names, smap, store, dry=False):
                         os.remove(fp)
                     removed += 1
     for n in names:
-        want = os.path.join(store, smap[n], n)
+        cat = smap[n]
+        want = os.path.join(store, cat, n)
         found = None
         if os.path.isdir(target_dir):
             for c in os.listdir(target_dir):
@@ -184,16 +187,18 @@ def apply_categorized(target_dir, names, smap, store, dry=False):
                     found = fp
                     break
         if found is None:
-            cat = smap[n]
+            catdir = os.path.join(target_dir, cat)
             if not dry:
-                os.makedirs(os.path.join(target_dir, cat), exist_ok=True)
-                os.symlink(want, os.path.join(target_dir, cat, n))
+                os.makedirs(catdir, exist_ok=True)
+                os.symlink(os.path.relpath(want, catdir), os.path.join(catdir, n))
             added += 1
-        elif os.path.islink(found) and os.readlink(found) != want:
-            if not dry:  # symlink al posto sbagliato o dangling: ripara
-                os.remove(found)
-                os.symlink(want, found)
-            added += 1
+        else:
+            rel = os.path.relpath(want, os.path.dirname(found))   # link RELATIVO
+            if os.path.islink(found) and os.readlink(found) != rel:
+                if not dry:  # symlink al posto sbagliato o dangling: ripara
+                    os.remove(found)
+                    os.symlink(rel, found)
+                added += 1
     return added, removed
 
 
@@ -373,21 +378,23 @@ def validate_config(cfg, store, smap, cats):
 
 # ----------------------------------------------------------------------- diff
 def _link_names(d):
-    """Nomi dei symlink in una cartella (vuoto se non esiste)."""
+    """Nomi dei symlink VALIDI in una cartella (i link rotti non contano)."""
     if not os.path.isdir(d):
         return set()
-    return {n for n in os.listdir(d) if os.path.islink(os.path.join(d, n))}
+    return {n for n in os.listdir(d)
+            if os.path.islink(os.path.join(d, n)) and os.path.exists(os.path.join(d, n))}
 
 
 def _categorized_link_names(d):
-    """Nomi dei symlink nei sottolivelli di categoria."""
+    """Nomi dei symlink VALIDI nei sottolivelli di categoria."""
     if not os.path.isdir(d):
         return set()
     out = set()
     for c in os.listdir(d):
         cp = os.path.join(d, c)
         if os.path.isdir(cp):
-            out |= {n for n in os.listdir(cp) if os.path.islink(os.path.join(cp, n))}
+            out |= {n for n in os.listdir(cp)
+                    if os.path.islink(os.path.join(cp, n)) and os.path.exists(os.path.join(cp, n))}
     return out
 
 
@@ -454,6 +461,47 @@ def diff_config(cfg, store, smap, cats, all_store):
                       _json_names(hcfg["config"], f"agents.entries.{a}.skills"),
                       p[a], all_store, pmode)
     return lines
+
+
+# --------------------------------------------------------------------- repair
+def repair_link(fp, name, smap, store, dry=False):
+    """Ripara un symlink che non punta al target giusto dello store. True se riparato."""
+    if name not in smap:
+        return False
+    target = os.path.join(store, smap[name], name)
+    if os.path.islink(fp) and os.path.realpath(fp) == os.path.realpath(target):
+        return False                      # gia' corretto
+    if os.path.lexists(fp) and not os.path.islink(fp):
+        return False                      # cartella/file nativa: non tocchiamo
+    if not dry:
+        if os.path.islink(fp):
+            os.remove(fp)
+        os.symlink(os.path.relpath(target, os.path.dirname(fp)), fp)
+    return True
+
+
+def repair_dir(target_dir, smap, store, dry=False):
+    """Ripara i symlink rotti/mal puntati (top-level) in una cartella. Ritorna quanti."""
+    if not os.path.isdir(target_dir):
+        return 0
+    return sum(1 for n in sorted(os.listdir(target_dir))
+               if repair_link(os.path.join(target_dir, n), n, smap, store, dry))
+
+
+def repair_harness(htype, hcfg, smap, store, dry=False):
+    """Ripara i symlink degli harness path-based (flat/categorized/openclaw). Ritorna quanti."""
+    if htype == "flat":
+        return repair_dir(os.path.expanduser(hcfg["skills_dir"]), smap, store, dry)
+    if htype == "categorized":
+        d = os.path.expanduser(hcfg["skills_dir"])
+        if not os.path.isdir(d):
+            return 0
+        return sum(repair_dir(os.path.join(d, c), smap, store, dry)
+                   for c in os.listdir(d) if os.path.isdir(os.path.join(d, c)))
+    if htype == "openclaw":
+        return sum(repair_dir(os.path.expanduser(hcfg[k]), smap, store, dry)
+                   for k in ("skills_dir", "library_dir") if hcfg.get(k))
+    return 0
 
 
 # ---------------------------------------------------------------------- adopt
@@ -587,6 +635,7 @@ def main():
     ap.add_argument("--report", action="store_true")
     ap.add_argument("--validate", action="store_true")
     ap.add_argument("--diff", action="store_true")
+    ap.add_argument("--repair", action="store_true", help="ripara i symlink rotti degli harness")
     ap.add_argument("--adopt", metavar="SRC", help="colloca una skill nello store")
     ap.add_argument("--cat", help="categoria di destinazione per --adopt")
     ap.add_argument("--as", dest="as_name", help="nome di destinazione per --adopt")
@@ -634,6 +683,15 @@ def main():
     if args.diff:
         for line in diff_config(cfg, store, smap, cats, all_store):
             print(line)
+        return
+
+    if args.repair:
+        tot = 0
+        for hname, hcfg in cfg["harnesses"].items():
+            n = repair_harness(hcfg["type"], hcfg, smap, store, args.dry_run)
+            tot += n
+            print(f"  [{hname}] riparati: {n}")
+        print(("[dry-run] " if args.dry_run else "") + f"totale riparati: {tot}")
         return
 
     if args.report:
