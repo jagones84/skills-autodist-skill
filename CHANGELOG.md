@@ -2,6 +2,20 @@
 
 Tutte le modifiche rilevanti di questa repo. Formato: [Keep a Changelog](https://keepachangelog.com/), versioning [SemVer](https://semver.org/).
 
+## [1.4.0] - 2026-09-23
+
+### Added
+- **`SKILL.md`**: livello agente. L'LLM legge lo store + gli harness, **propone** la mappa
+  skill→harness, chiede approvazione, poi il motore **applica** (deterministico, con backup).
+  Autonomia nella proposta, determinismo nell'esecuzione.
+- `AGENTS.md`: guida per gli agenti che lavorano sul repo.
+
+### Changed
+- **Rinomina**: progetto/cartella/repo `skills-store` → **`skills-autodist-skill`** (coerente con
+  `yt-whisper-skill`, `android-arm64-devkit-skill`). Aggiornati README, esempi e template.
+  Il motore non ha il nome hardcoded: lo `store:` sta nel config.
+- README: chiarito che esistono **due livelli** (motore deterministico + layer agente).
+
 ## [1.3.0] - 2026-09-23
 
 ### Added

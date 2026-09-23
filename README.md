@@ -1,17 +1,20 @@
-# skills-store
+# skills-autodist-skill
 
-Motore **generico** di distribuzione di *skill* verso N harness/agenti, da un'unica fonte
-di verita'. Le skill vivono in uno **store** di cartelle-categoria; il motore le aggancia a
-ogni harness come dice il config — con symlink (`flat`, `categorized`) o riscrivendo un file
-di configurazione dell'harness (`json_list`, `openclaw`).
+**Distribuisci le tue skill su N harness/agenti** da un'unica fonte di verita' (un config YAML).
+Le skill vivono in uno **store** di cartelle-categoria; l'engine le aggancia a ogni harness come
+dice il config — con symlink (`flat`, `categorized`) o riscrivendo un file di configurazione
+dell'harness (`json_list`, `openclaw`).
 
-- **Idempotente**: rilanciarlo non cambia nulla se e' gia' a posto.
-- `--dry-run`: anteprima, **non scrive nulla**.
-- `--report`: mappa leggibile di "chi ha cosa" (`REDISTRIBUTION.md`, generato).
-- Aggiungere un harness path-based = **solo una voce nel config**, zero codice.
+Due livelli, di proposito separati:
 
-**Licenza**: PolyForm Noncommercial 1.0.0 — libero per uso **non commerciale** con
-attribuzione. Per l'uso **commerciale** serve una licenza separata (vedi `LICENSE`).
+1. **Motore deterministico** — `scripts/redistribute.py`. Applica *esattamente* il config scritto
+   da te. **Nessun LLM nel loop.** Idempotente; `--dry-run` non scrive nulla; `--report` genera la mappa.
+2. **Livello agente** — `SKILL.md`. Un LLM legge lo store e i tuoi harness, **propone** la mappa
+   skill→harness, ti fa **approvare**, poi lancia il motore. Autonomia nella *proposta*,
+   determinismo nell'*esecuzione*.
+
+**Licenza**: PolyForm Noncommercial 1.0.0 — libero per uso **non commerciale** con attribuzione.
+Per l'uso commerciale serve una licenza separata (vedi `LICENSE`).
 
 ## Quick start (demo autosufficiente)
 
@@ -56,16 +59,16 @@ Esempio completo e commentato: `examples/redistribution.example.yaml`.
 ## Dove stanno le skill (importante)
 
 Le categorie dello store nella root (`dev/`, `ops/`, `android/`, ...) e `_sources/` sono
-**gitignorate**: questo repository pubblico contiene **solo il motore** — script, test,
-esempi, licenza. Ognuno mette le **proprie** skill dove vuole (di default
-`<categoria>/<nome>/SKILL.md`, vedi lo store demo) e le elenca nel proprio config.
+**gitignorate**: questo repository contiene **solo il motore** — script, test, esempi, licenza.
+Ognuno mette le **proprie** skill dove vuole (di default `<categoria>/<nome>/SKILL.md`) e le
+elenca nel proprio config.
 
-## Aggiungere un harness
+## Usarlo da un agente (LLM)
 
-1. aggiungi una voce in `harnesses:` con il `type` giusto (vedi la tabella);
-2. `python3 scripts/redistribute.py --config <tuo.yaml>`.
+Vedi **[`SKILL.md`](SKILL.md)**: l'agente legge lo store + gli harness, **propone** il config,
+aspetta la tua approvazione, poi esegue `--dry-run` e infine applica.
 
-## Sviluppo / test
+## Test
 
 ```bash
 python3 -m pytest tests -q
@@ -78,16 +81,18 @@ report e `--dry-run` che non scrive.
 ## Struttura
 
 ```
-skills-store/
+skills-autodist-skill/
+├── SKILL.md                         # livello agente (llm-driven, con approvazione)
 ├── scripts/redistribute.py          # il motore (registry di backend)
 ├── tests/test_redistribute.py       # 14 test
-├── config/redistribution.yaml       # ISTANZA locale (gitignorata)
 ├── examples/
+│   ├── README.md                    # guida al primo avvio
 │   ├── redistribution.example.yaml  # config d'esempio eseguibile
+│   ├── templates/                   # openclaw / hermes / coding-agent (senza segreti)
 │   ├── store/{dev,ops}/...          # 2 skill demo
 │   ├── seed/*.json                  # seed per i backend JSON
 │   └── run-demo.sh
 ├── requirements.txt
 ├── LICENSE                          # PolyForm Noncommercial 1.0.0
-└── README.md / CHANGELOG.md / .gitignore
+└── README.md / CHANGELOG.md / AGENTS.md / .gitignore
 ```

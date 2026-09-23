@@ -5,7 +5,7 @@
 #   python3 scripts/redistribute.py --config ~/mio-openclaw.yaml --dry-run
 version: 2
 
-store: ~/skills-store
+store: ~/skills-autodist-skill
 
 harnesses:
   openclaw:
