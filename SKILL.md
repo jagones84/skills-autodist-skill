@@ -96,6 +96,9 @@ python3 scripts/redistribute.py --config <config> --report     # rigenera la map
 find <harness_skills_dir> -maxdepth 2 -type l ! -exec test -e {} \; -print
 ```
 
+Se trovi link rotti (o hai spostato/rinominato lo store): `python3 scripts/redistribute.py --config <config> --repair`
+(`--dry-run` per vedere quanti ne riparerebbe). I link sono **relativi**, quindi reggono se si sposta l'albero.
+
 ## Errori comuni
 
 - `Skill sconosciuta nel config: 'x'` -> per una categoria usa `cat:x`; altrimenti il nome esatto.
