@@ -9,6 +9,22 @@ __pycache__/
 *.bak-*
 *.bak
 
+# --- istanza locale: le MIE skill + sorgenti esterne (fuori dal repo pubblico) ---
+/dev/
+/ops/
+/android/
+/research/
+/data/
+/media/
+/tg/
+/meta/
+/_sources/
+/config/redistribution.yaml
+/REDISTRIBUTION.md
+
+# --- output di demo/esecuzione ---
+/examples/out/
+
 # --- segreti: MAI committare (difensivo) ---
 .env
 .env.*

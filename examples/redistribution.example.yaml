@@ -1,6 +1,10 @@
 # ============================================================
-# ESEMPIO generico di config per il motore di redistribuzione.
-# Copia in config/redistribution.yaml e adatta i *tuoi* path/agenti.
+# ESEMPIO eseguibile e autosufficiente.
+#   store: examples/store   (2 skill demo finte)
+#   output: examples/out/   (gitignorato; niente scritture in $HOME)
+#
+# Prova:   bash examples/run-demo.sh --dry-run
+#          bash examples/run-demo.sh
 #
 # Ogni harness = un `type` (backend) + i suoi parametri:
 #   flat         symlink piatti:            <skills_dir>/<skill>
@@ -14,43 +18,43 @@
 # ============================================================
 version: 2
 
-store: ~/skills-store        # le categorie dello store sono le sue sottocartelle
+store: examples/store
 
 harnesses:
 
-  # (1) harness con una directory piatta di skill
-  my-coding-agent:
+  # (1) directory piatta di skill
+  demo-flat:
     type: flat
-    skills_dir: ~/.config/my-coding-agent/skills
+    skills_dir: examples/out/demo-flat
     skills: [cat:dev]
 
-  # (2) harness con layout per-categoria
-  my-hub:
+  # (2) layout per-categoria
+  demo-categorized:
     type: categorized
-    skills_dir: ~/.my-hub/skills
+    skills_dir: examples/out/demo-categorized
     skills: [cat:dev, cat:ops]
 
-  # (3) harness che tiene le sue skill in un file JSON -> nessun codice richiesto.
-  #     `pointer` = dot-path della lista da riscrivere; l'etichetta e' il penultimo
-  #     segmento (…entries.<agent>.skills -> <agent>).
-  my-json-agent:
+  # (3) harness che tiene le skill in un file JSON -> nessun codice richiesto.
+  #     `pointer` = dot-path della lista; l'etichetta e' il penultimo segmento
+  #     (…entries.<agent>.skills -> <agent>).
+  demo-json-agent:
     type: json_list
-    file: ~/.config/my-json-agent/config.json
+    file: examples/out/demo-agent.json
     preserve: not_in_store
-    backup: true                 # crea <file>.bak-redistribute prima di scrivere
+    backup: true
     lists:
       - pointer: agents.entries.coder.skills
         skills: [cat:dev]
-      - pointer: agents.entries.writer.skills
-        skills: [h3-film-pipeline, prime-video]
+      - pointer: agents.entries.ops.skills
+        skills: [cat:ops]
 
   # (4) preset OpenClaw: pool condiviso + una lista per sub-agente
-  openclaw:
+  demo-openclaw:
     type: openclaw
-    skills_dir:  ~/.openclaw/skills
-    library_dir: ~/.openclaw/workspace/skills
-    config:      ~/.openclaw/openclaw.json
+    skills_dir:  examples/out/demo-openclaw/pool
+    library_dir: examples/out/demo-openclaw/library
+    config:      examples/out/demo-openclaw.json
     preserve: not_in_store
     agents:
-      coordinator: [cat:ops, cat:meta]
       coder: [cat:dev]
+      coordinator: [cat:ops]

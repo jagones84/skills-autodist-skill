@@ -1,67 +1,69 @@
 # skills-store
 
-Store **unico e canonico** delle skill per gli agent harness del DGX Spark.
-Le skill reali vivono qui (versionate); ogni runtime le vede via **symlink** allo store.
+Motore **generico** di distribuzione di *skill* verso N harness/agenti, da un'unica fonte
+di verita'. Le skill vivono in uno **store** di cartelle-categoria; il motore le aggancia a
+ogni harness come dice il config — con symlink (`flat`, `categorized`) o riscrivendo un file
+di configurazione dell'harness (`json_list`, `openclaw`).
 
-## Struttura
+- **Idempotente**: rilanciarlo non cambia nulla se e' gia' a posto.
+- `--dry-run`: anteprima, **non scrive nulla**.
+- `--report`: mappa leggibile di "chi ha cosa" (`REDISTRIBUTION.md`, generato).
+- Aggiungere un harness path-based = **solo una voce nel config**, zero codice.
 
-```
-skills-store/
-├── config/redistribution.yaml   # FONTE DI VERITA': agenti -> categorie/skill
-├── scripts/redistribute.py      # applica la redistribuzione (idempotente) + report
-├── REDISTRIBUTION.md            # mappa generata (da --report)
-├── dev/ ops/ tg/ android/ research/ data/ media/ meta/   # le categorie di skill
-└── _sources/                    # symlink a repo di terze parti (non-skill)
-```
+**Licenza**: PolyForm Noncommercial 1.0.0 — libero per uso **non commerciale** con
+attribuzione. Per l'uso **commerciale** serve una licenza separata (vedi `LICENSE`).
 
-## Applicare la redistribuzione
-
-Il file `config/redistribution.yaml` definisce, per ogni agente (inclusi i 5
-sub-agenti OpenClaw: `openclaw.coordinator`, `.coder`, `.researcher`, `.analyst`,
-`.writer`) e per gli specialisti (`hermes`, `opencode`, `maka`), quali
-categorie/skill sono attive.
+## Quick start (demo autosufficiente)
 
 ```bash
-python3 scripts/redistribute.py --dry-run   # anteprima
-python3 scripts/redistribute.py             # applica (symlink + openclaw.json)
-python3 scripts/redistribute.py --report    # rigenera REDISTRIBUTION.md
+pip install -r requirements.txt
+bash examples/run-demo.sh --dry-run     # anteprima
+bash examples/run-demo.sh               # applica (scrive solo in examples/out/)
+python3 -m pytest tests -q              # 14 test
 ```
 
-Lo script e' **idempotente** e fa:
-- symlink piatti per OpenClaw (`~/.openclaw/skills`, `~/.openclaw/workspace/skills`),
-  OpenCode (`~/.config/opencode/skills`), Maka (`~/.config/Maka/workspaces/default/skills`);
-- symlink per-categoria per Hermes (`~/.hermes/skills/<cat>/<skill>`);
-- riscrive `agents.entries.<a>.skills` in `~/.openclaw/openclaw.json`, preservando le
-  skill bundled/native (non dello store).
+Il demo usa lo store `examples/store` (2 skill finte) e scrive in `examples/out/`:
+**non tocca `$HOME`**.
 
-`dev` e' **condiviso di proposito** tra `openclaw.coder` e `opencode` (i due coding agent).
-
-## Aggiungere una skill
-
-1. crea `<categoria>/<nome>/SKILL.md` dentro lo store;
-2. aggiungi `<nome>` (o `cat:<categoria>`) all'harness giusto in `config/redistribution.yaml`;
-3. `python3 scripts/redistribute.py`.
-
-## Il motore: backend generici
-
-`scripts/redistribute.py` e' **generico**: ogni harness dichiara un `type` e il motore lo
-applica via un registry (`BACKENDS`). Aggiungere un harness path-based = **solo** una voce
-nel config, zero codice.
+## Backend
 
 | `type`        | Cosa fa                                                          | Chiavi |
 |---------------|------------------------------------------------------------------|--------|
 | `flat`        | symlink piatti `<skills_dir>/<skill>`                            | `skills_dir`, `skills` |
 | `categorized` | symlink per categoria `<skills_dir>/<cat>/<skill>`               | `skills_dir`, `skills` |
-| `json_list`   | riscrive una lista in un file JSON (dichiarativo)                | `file`, `lists`/`pointer`, `skills`, `preserve`, `backup` |
+| `json_list`   | riscrive una lista dentro un file JSON (dichiarativo)            | `file`, `lists`/`pointer`, `skills`, `preserve`, `backup` |
 | `openclaw`    | preset: pool flat (`skills_dir`+`library_dir`) + liste per-agente | `config`, `agents`, `preserve` |
 
 `preserve`: `not_in_store` (default, tiene le voci non dello store) | `none` (riscrive solo
 con le skill dello store). Un **nuovo backend** serve solo per una nuova *forma* di layout.
 
-Config d'esempio generico: `examples/redistribution.example.yaml`. Il config reale di questa
-istanza e' `config/redistribution.yaml`.
+## Il config
 
-## Test
+```yaml
+version: 2
+store: <dove vivono le skill>        # le categorie dello store = sue sottocartelle
+harnesses:
+  <nome>:
+    type: <backend>
+    # ...chiavi del backend
+```
+
+Selezione delle skill: `cat:<categoria>` = categoria intera; nome nudo = skill puntuale.
+Esempio completo e commentato: `examples/redistribution.example.yaml`.
+
+## Dove stanno le skill (importante)
+
+Le categorie dello store nella root (`dev/`, `ops/`, `android/`, ...) e `_sources/` sono
+**gitignorate**: questo repository pubblico contiene **solo il motore** — script, test,
+esempi, licenza. Ognuno mette le **proprie** skill dove vuole (di default
+`<categoria>/<nome>/SKILL.md`, vedi lo store demo) e le elenca nel proprio config.
+
+## Aggiungere un harness
+
+1. aggiungi una voce in `harnesses:` con il `type` giusto (vedi la tabella);
+2. `python3 scripts/redistribute.py --config <tuo.yaml>`.
+
+## Sviluppo / test
 
 ```bash
 python3 -m pytest tests -q
@@ -71,4 +73,19 @@ Coprono i backend su store sintetici (nessuna scrittura fuori da `tmp`): symlink
 flat/categorized, `json_list` (preserve + idempotenza), preset openclaw, registry,
 report e `--dry-run` che non scrive.
 
-Dettagli operativi e stato corrente: `REDISTRIBUTION.md`.
+## Struttura
+
+```
+skills-store/
+├── scripts/redistribute.py          # il motore (registry di backend)
+├── tests/test_redistribute.py       # 14 test
+├── config/redistribution.yaml       # ISTANZA locale (gitignorata)
+├── examples/
+│   ├── redistribution.example.yaml  # config d'esempio eseguibile
+│   ├── store/{dev,ops}/...          # 2 skill demo
+│   ├── seed/*.json                  # seed per i backend JSON
+│   └── run-demo.sh
+├── requirements.txt
+├── LICENSE                          # PolyForm Noncommercial 1.0.0
+└── README.md / CHANGELOG.md / .gitignore
+```
