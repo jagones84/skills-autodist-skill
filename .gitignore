@@ -40,3 +40,10 @@ credentials*.json
 *credential*.json
 *token*.json
 secrets/
+
+# --- i TEMPLATE invece si' (esplicitamente, vincono sui pattern sopra) ---
+!.env.template
+!*.example
+!*.example.*
+!*example*.yaml
+!*example*.json
