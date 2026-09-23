@@ -18,6 +18,7 @@ Uso:
     python3 scripts/redistribute.py --dry-run  # mostra i conteggi delle modifiche (non scrive)
     python3 scripts/redistribute.py --diff     # mostra le modifiche voce per voce (non scrive)
     python3 scripts/redistribute.py --validate # valida il config, nessuna scrittura (exit 1 se errato)
+    python3 scripts/redistribute.py --adopt <src> --cat <cat>  # mette una skill nello store (copy|link)
     python3 scripts/redistribute.py --report   # rigenera REDISTRIBUTION.md
 """
 import argparse
@@ -31,6 +32,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONFIG_DEFAULT = os.path.join(ROOT, "config", "redistribution.yaml")
 IGNORE_DIRS = {".git", "_sources", "config", "scripts", "docs", "trash", "examples", "tests"}
 BACKUP_SUFFIX = ".bak-redistribute"
+STRIP_DIRS = {".git", ".venv", "venv", "node_modules", "__pycache__", ".pytest_cache"}
 
 
 # ---------------------------------------------------------------- config/store
@@ -454,6 +456,75 @@ def diff_config(cfg, store, smap, cats, all_store):
     return lines
 
 
+# ---------------------------------------------------------------------- adopt
+def _skill_name(src):
+    """Il `name:` del frontmatter di SKILL.md (sola lettura), o None."""
+    try:
+        with open(os.path.join(src, "SKILL.md"), encoding="utf-8") as fh:
+            txt = fh.read(2000)
+    except OSError:
+        return None
+    if txt.startswith("---") and txt.count("---") >= 2:
+        block = txt.split("---", 2)[1]
+        for line in block.splitlines():
+            s = line.strip()
+            if s.startswith("name:"):
+                return s.split(":", 1)[1].strip().strip('"').strip("'") or None
+    return None
+
+
+def resolve_name(src, name=None):
+    """Nome della skill: `name` esplicito > `name:` di SKILL.md > nome cartella."""
+    return name or _skill_name(src) or os.path.basename(os.path.abspath(src).rstrip("/"))
+
+
+def _strip_ignore(strip):
+    """Ignore per copytree: salta le cartelle non-skill (VCS/dipendenze) se `strip`."""
+    def ignore(_dirpath, names):
+        return {n for n in names if n in STRIP_DIRS} if strip else set()
+    return ignore
+
+
+def adopt_skill(store, src, cat, name=None, mode="copy", strip=True, force=False, dry=False):
+    """Colloca una skill nello store (copy di default, oppure link). NON modifica la sorgente.
+
+    Ritorna (destinazione, nome). Solleva ValueError se la sorgente non e' una skill
+    (manca `SKILL.md`), se il mode e' ignoto, o se la destinazione esiste (serve `force`).
+    """
+    src = os.path.abspath(os.path.expanduser(src))
+    if not os.path.isdir(src):
+        raise ValueError(f"sorgente inesistente: {src}")
+    if not os.path.isfile(os.path.join(src, "SKILL.md")):
+        raise ValueError(f"non e' una skill (manca SKILL.md): {src}")
+    if mode not in ("copy", "link"):
+        raise ValueError(f"mode sconosciuto: '{mode}' (copy|link)")
+    name = resolve_name(src, name)
+    catdir = os.path.join(store, cat)
+    dest = os.path.join(catdir, name)
+    if os.path.lexists(dest) and not force:
+        raise ValueError(f"destinazione gia' esistente: {dest} (usa --force per sostituire)")
+    if not dry:
+        os.makedirs(catdir, exist_ok=True)
+        if os.path.islink(dest):
+            os.remove(dest)
+        elif os.path.isdir(dest):
+            shutil.rmtree(dest)
+        if mode == "copy":
+            shutil.copytree(src, dest, ignore=_strip_ignore(strip))
+        else:
+            os.symlink(os.path.relpath(src, catdir), dest)
+    return dest, name
+
+
+def wire_snippet(cat, name):
+    """Le righe da mostrare all'utente per collegare la skill appena adottata."""
+    return [
+        f"config: '{name}' e' ora nello store (categoria '{cat}').",
+        f"  - ZERO edit se un harness seleziona `cat:{cat}` (la prende da solo).",
+        f"  - altrimenti aggiungi `{name}` alla lista `skills:` dell'harness voluto.",
+    ]
+
+
 # ---------------------------------------------------------------------- report
 def build_report(cfg, smap, cats):
     """Genera REDISTRIBUTION.md dai soli `plan()` (nessun ramo per-harness)."""
@@ -516,10 +587,36 @@ def main():
     ap.add_argument("--report", action="store_true")
     ap.add_argument("--validate", action="store_true")
     ap.add_argument("--diff", action="store_true")
+    ap.add_argument("--adopt", metavar="SRC", help="colloca una skill nello store")
+    ap.add_argument("--cat", help="categoria di destinazione per --adopt")
+    ap.add_argument("--as", dest="as_name", help="nome di destinazione per --adopt")
+    ap.add_argument("--mode", default="copy", help="copy (default) | link")
+    ap.add_argument("--no-strip", action="store_true", help="con --adopt copia anche .git/dipendenze")
+    ap.add_argument("--force", action="store_true", help="con --adopt sostituisce la destinazione esistente")
     args = ap.parse_args()
 
     cfg = load_config(args.config)
     store = os.path.expanduser(cfg.get("store", "")) if isinstance(cfg, dict) else ""
+
+    if args.adopt:
+        if not args.cat:
+            print("ERRORE: --adopt richiede --cat <categoria>")
+            sys.exit(1)
+        if not store:
+            print("ERRORE: manca 'store' nel config")
+            sys.exit(1)
+        try:
+            dest, name = adopt_skill(store, args.adopt, args.cat, args.as_name,
+                                     mode=args.mode, strip=not args.no_strip,
+                                     force=args.force, dry=args.dry_run)
+        except ValueError as exc:
+            print("ERRORE:", exc)
+            sys.exit(1)
+        print(("[dry-run] " if args.dry_run else "") + f"adottata in: {dest}")
+        for line in wire_snippet(args.cat, name):
+            print(line)
+        return
+
     smap = store_map(store) if os.path.isdir(store) else {}
     cats = categories(store) if os.path.isdir(store) else {}
     all_store = set(smap)
