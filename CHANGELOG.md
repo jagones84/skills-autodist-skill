@@ -2,6 +2,19 @@
 
 Tutte le modifiche rilevanti di questa repo. Formato: [Keep a Changelog](https://keepachangelog.com/), versioning [SemVer](https://semver.org/).
 
+## [1.2.0] - 2026-09-23
+
+### Added
+- Licenza **PolyForm Noncommercial 1.0.0** (`LICENSE`): uso non commerciale con attribuzione;
+  l'uso commerciale richiede una licenza separata.
+- Store **demo** `examples/store/` (2 skill finte) + config d'esempio eseguibile e
+  autosufficiente (`examples/run-demo.sh`, `examples/seed/`), output in `examples/out/`.
+
+### Changed
+- `.gitignore`: le categorie di skill locali, `_sources/`, il config d'istanza e
+  `REDISTRIBUTION.md` sono esclusi dal repo (il repo pubblico contiene solo il motore).
+- README riscritto come **motore generico** (non piu' come istanza di deployment).
+
 ## [1.1.0] - 2026-09-23
 
 ### Added
