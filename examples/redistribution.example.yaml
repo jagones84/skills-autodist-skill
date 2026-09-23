@@ -1,0 +1,56 @@
+# ============================================================
+# ESEMPIO generico di config per il motore di redistribuzione.
+# Copia in config/redistribution.yaml e adatta i *tuoi* path/agenti.
+#
+# Ogni harness = un `type` (backend) + i suoi parametri:
+#   flat         symlink piatti:            <skills_dir>/<skill>
+#   categorized  symlink per categoria:     <skills_dir>/<store_cat>/<skill>
+#   json_list    riscrive una lista in un file JSON (dichiarativo, no codice)
+#   openclaw     preset: pool flat (skills_dir + library_dir) + liste per-agente
+#
+# Linguaggio: `cat:<nome>` = categoria intera; nome nudo = skill puntuale.
+# `preserve: not_in_store` (default) tiene le voci non gestite dallo store;
+# `preserve: none` riscrive la lista solo con le skill dello store.
+# ============================================================
+version: 2
+
+store: ~/skills-store        # le categorie dello store sono le sue sottocartelle
+
+harnesses:
+
+  # (1) harness con una directory piatta di skill
+  my-coding-agent:
+    type: flat
+    skills_dir: ~/.config/my-coding-agent/skills
+    skills: [cat:dev]
+
+  # (2) harness con layout per-categoria
+  my-hub:
+    type: categorized
+    skills_dir: ~/.my-hub/skills
+    skills: [cat:dev, cat:ops]
+
+  # (3) harness che tiene le sue skill in un file JSON -> nessun codice richiesto.
+  #     `pointer` = dot-path della lista da riscrivere; l'etichetta e' il penultimo
+  #     segmento (…entries.<agent>.skills -> <agent>).
+  my-json-agent:
+    type: json_list
+    file: ~/.config/my-json-agent/config.json
+    preserve: not_in_store
+    backup: true                 # crea <file>.bak-redistribute prima di scrivere
+    lists:
+      - pointer: agents.entries.coder.skills
+        skills: [cat:dev]
+      - pointer: agents.entries.writer.skills
+        skills: [h3-film-pipeline, prime-video]
+
+  # (4) preset OpenClaw: pool condiviso + una lista per sub-agente
+  openclaw:
+    type: openclaw
+    skills_dir:  ~/.openclaw/skills
+    library_dir: ~/.openclaw/workspace/skills
+    config:      ~/.openclaw/openclaw.json
+    preserve: not_in_store
+    agents:
+      coordinator: [cat:ops, cat:meta]
+      coder: [cat:dev]
