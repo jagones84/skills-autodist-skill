@@ -2,6 +2,22 @@
 
 Tutte le modifiche rilevanti di questa repo. Formato: [Keep a Changelog](https://keepachangelog.com/), versioning [SemVer](https://semver.org/).
 
+## [1.5.0] - 2026-09-23
+
+### Added
+- **`--diff`**: mostra le modifiche **voce per voce** che `apply` farebbe (symlink da aggiungere/rimuovere,
+  voci JSON da aggiungere/rimuovere) **senza scrivere nulla**. Diverso da `--dry-run`, che dà solo i conteggi.
+- **`--validate`**: valida il config **senza applicarlo** — type noti, chiavi obbligatorie per backend,
+  file target esistenti, riferimenti a skill/categorie presenti nello store. Stampa `config valido`
+  (exit 0) oppure l'elenco degli errori (**exit 1**).
+- Helper `resolve_entries()`: come `expand()` ma **non** esce, ritorna anche la lista degli errori.
+
+### Changed
+- `main()`: `--validate` e `--diff` girano prima di applicare; uno `store` mancante non fa piu' crashare
+  la validazione (viene riportato come errore).
+- `_label()`: robusto anche per pointer a segmento singolo.
+- Test: **24** (erano 14). Scritti in TDD: prima falliscono, poi passa l'implementazione.
+
 ## [1.4.0] - 2026-09-23
 
 ### Added
