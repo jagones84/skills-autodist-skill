@@ -15,7 +15,9 @@ config, nessun codice. Un nuovo backend serve solo per una NUOVA forma di layout
 
 Uso:
     python3 scripts/redistribute.py            # applica (idempotente)
-    python3 scripts/redistribute.py --dry-run  # mostra solo le modifiche (non scrive)
+    python3 scripts/redistribute.py --dry-run  # mostra i conteggi delle modifiche (non scrive)
+    python3 scripts/redistribute.py --diff     # mostra le modifiche voce per voce (non scrive)
+    python3 scripts/redistribute.py --validate # valida il config, nessuna scrittura (exit 1 se errato)
     python3 scripts/redistribute.py --report   # rigenera REDISTRIBUTION.md
 """
 import argparse
@@ -58,20 +60,29 @@ def store_map(store):
     return out
 
 
-def expand(entries, cats, smap):
-    """`cat:<nome>` = categoria intera; altrimenti nome di skill puntuale."""
-    out = []
+def resolve_entries(entries, cats, smap):
+    """Come `expand` ma NON esce: ritorna (nomi, errori)."""
+    out, errors = [], []
     for e in entries or []:
         if e.startswith("cat:"):
             c = e[4:]
             if c not in cats:
-                sys.exit(f"Categoria sconosciuta nel config: '{c}'")
-            out += [n for n, cc in smap.items() if cc == c]
+                errors.append(f"Categoria sconosciuta nel config: '{c}'")
+            else:
+                out += [n for n, cc in smap.items() if cc == c]
         elif e in smap:
             out.append(e)
         else:
-            sys.exit(f"Skill sconosciuta nel config: '{e}'")
-    return sorted(set(out))
+            errors.append(f"Skill sconosciuta nel config: '{e}'")
+    return sorted(set(out)), errors
+
+
+def expand(entries, cats, smap):
+    """`cat:<nome>` = categoria intera; altrimenti nome di skill puntuale."""
+    names, errors = resolve_entries(entries, cats, smap)
+    if errors:
+        sys.exit(errors[0])
+    return names
 
 
 # -------------------------------------------------------------- json primitive
@@ -208,7 +219,8 @@ def _specs(hcfg):
 
 def _label(pointer):
     """L'etichetta di un pointer: penultimo segmento (…entries.<a>.skills -> <a>)."""
-    return pointer.split(".")[-2]
+    parts = pointer.split(".")
+    return parts[-2] if len(parts) >= 2 else parts[-1]
 
 
 def _json_list_plan(hcfg, cats, smap):
@@ -298,6 +310,150 @@ def apply_harness(htype, hcfg, cats, smap, store, all_store, dry=False):
     return BACKENDS[htype][1](hcfg, p, smap, store, all_store, dry)
 
 
+# ------------------------------------------------------------------- validate
+def _harness_entries(htype, hcfg):
+    """{etichetta -> voci}: '' = harness a lista singola (flat/categorized)."""
+    if htype in ("flat", "categorized"):
+        return {"": hcfg.get("skills", [])}
+    if htype == "json_list":
+        if not (hcfg.get("lists") or hcfg.get("pointer")):
+            return {}
+        return {_label(s["pointer"]): s.get("skills", []) for s in _specs(hcfg) if s.get("pointer")}
+    if htype == "openclaw":
+        return dict(hcfg.get("agents", {}))
+    return {}
+
+
+def validate_config(cfg, store, smap, cats):
+    """Valida il config SENZA applicarlo: ritorna la lista errori ([] = valido)."""
+    errs = []
+    if not isinstance(cfg, dict):
+        return ["config non valido (non e' una mappa YAML)"]
+    if not cfg.get("store"):
+        errs.append("manca 'store'")
+    if not os.path.isdir(store):
+        errs.append(f"store inesistente: {store}")
+    harnesses = cfg.get("harnesses")
+    if not isinstance(harnesses, dict) or not harnesses:
+        errs.append("manca 'harnesses' (mappa non vuota)")
+        return errs
+    for hname, hcfg in harnesses.items():
+        if not isinstance(hcfg, dict):
+            errs.append(f"{hname}: harness non valido")
+            continue
+        htype = hcfg.get("type")
+        if htype not in BACKENDS:
+            errs.append(f"{hname}: type sconosciuto '{htype}'")
+            continue
+        if htype in ("flat", "categorized") and not hcfg.get("skills_dir"):
+            errs.append(f"{hname}: manca 'skills_dir'")
+        if htype == "json_list":
+            if not hcfg.get("file"):
+                errs.append(f"{hname}: manca 'file'")
+            elif not os.path.isfile(os.path.expanduser(hcfg["file"])):
+                errs.append(f"{hname}: file inesistente: {hcfg['file']}")
+            if not hcfg.get("lists") and not hcfg.get("pointer"):
+                errs.append(f"{hname}: serve 'pointer' o 'lists'")
+            if hcfg.get("lists") or hcfg.get("pointer"):
+                for spec in _specs(hcfg):
+                    if not spec.get("pointer"):
+                        errs.append(f"{hname}: un target senza 'pointer'")
+        if htype == "openclaw":
+            if not hcfg.get("config"):
+                errs.append(f"{hname}: manca 'config'")
+            elif not os.path.isfile(os.path.expanduser(hcfg["config"])):
+                errs.append(f"{hname}: config inesistente: {hcfg['config']}")
+        for label, entries in _harness_entries(htype, hcfg).items():
+            for msg in resolve_entries(entries, cats, smap)[1]:
+                errs.append(f"{hname}.{label}: {msg}" if label else f"{hname}: {msg}")
+    return errs
+
+
+# ----------------------------------------------------------------------- diff
+def _link_names(d):
+    """Nomi dei symlink in una cartella (vuoto se non esiste)."""
+    if not os.path.isdir(d):
+        return set()
+    return {n for n in os.listdir(d) if os.path.islink(os.path.join(d, n))}
+
+
+def _categorized_link_names(d):
+    """Nomi dei symlink nei sottolivelli di categoria."""
+    if not os.path.isdir(d):
+        return set()
+    out = set()
+    for c in os.listdir(d):
+        cp = os.path.join(d, c)
+        if os.path.isdir(cp):
+            out |= {n for n in os.listdir(cp) if os.path.islink(os.path.join(cp, n))}
+    return out
+
+
+def _json_names(path, pointer):
+    """La lista puntata da `pointer` in un file JSON (vuoto se file/pointer assenti)."""
+    path = os.path.expanduser(path)
+    if not os.path.isfile(path):
+        return set()
+    with open(path) as fh:
+        node = json.load(fh)
+    for k in pointer.split("."):
+        node = node[k]
+    return set(node)
+
+
+def _changes(have, want, all_store, preserve_mode):
+    """(aggiunte, rimosse) fra lo stato presente `have` e il voluto `want`."""
+    have, want = set(have), set(want)
+    added = sorted(want - have)
+    if preserve_mode == "not_in_store":
+        removed = sorted(x for x in have - want if x in all_store)
+    else:
+        removed = sorted(have - want)
+    return added, removed
+
+
+def _emit(lines, hname, label, have, want, all_store, preserve_mode):
+    added, removed = _changes(have, want, all_store, preserve_mode)
+    head = f"[{hname}]" if label == "*" else f"[{hname}:{label}]"
+    if not added and not removed:
+        lines.append(head + " (nessuna modifica)")
+        return
+    lines.append(head)
+    lines += [f"  + {n}" for n in added]
+    lines += [f"  - {n}" for n in removed]
+
+
+def diff_config(cfg, store, smap, cats, all_store):
+    """Le modifiche che `apply` farebbe, voce per voce. NON scrive nulla."""
+    lines = []
+    for hname, hcfg in cfg["harnesses"].items():
+        htype = hcfg["type"]
+        p = plan(htype, hcfg, cats, smap)
+        pmode = hcfg.get("preserve", "not_in_store")
+        if htype == "flat":
+            _emit(lines, hname, "*", _link_names(os.path.expanduser(hcfg["skills_dir"])),
+                  p["*"], all_store, "none")
+        elif htype == "categorized":
+            _emit(lines, hname, "*", _categorized_link_names(os.path.expanduser(hcfg["skills_dir"])),
+                  p["*"], all_store, "none")
+        elif htype == "json_list":
+            for spec in _specs(hcfg):
+                label = _label(spec["pointer"])
+                _emit(lines, hname, label, _json_names(hcfg["file"], spec["pointer"]),
+                      p[label], all_store, pmode)
+        elif htype == "openclaw":
+            pool = sorted(set(sum(p.values(), [])))
+            for key in ("skills_dir", "library_dir"):
+                if hcfg.get(key):
+                    _emit(lines, hname, key, _link_names(os.path.expanduser(hcfg[key])),
+                          pool, all_store, "none")
+            for a in p:
+                _emit(lines, hname, f"agent:{a}",
+                      _json_names(hcfg["config"], f"agents.entries.{a}.skills"),
+                      p[a], all_store, pmode)
+    return lines
+
+
 # ---------------------------------------------------------------------- report
 def build_report(cfg, smap, cats):
     """Genera REDISTRIBUTION.md dai soli `plan()` (nessun ramo per-harness)."""
@@ -358,14 +514,30 @@ def main():
     ap.add_argument("--config", default=CONFIG_DEFAULT)
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--report", action="store_true")
+    ap.add_argument("--validate", action="store_true")
+    ap.add_argument("--diff", action="store_true")
     args = ap.parse_args()
 
     cfg = load_config(args.config)
-    store = os.path.expanduser(cfg["store"])
-    smap = store_map(store)
-    cats = categories(store)
+    store = os.path.expanduser(cfg.get("store", "")) if isinstance(cfg, dict) else ""
+    smap = store_map(store) if os.path.isdir(store) else {}
+    cats = categories(store) if os.path.isdir(store) else {}
     all_store = set(smap)
     print(f"store: {store}  ({len(smap)} skill, {len(cats)} categorie)  dry_run={args.dry_run}")
+
+    if args.validate:
+        errs = validate_config(cfg, store, smap, cats)
+        if errs:
+            for e in errs:
+                print(f"ERRORE: {e}")
+            sys.exit(1)
+        print("config valido")
+        return
+
+    if args.diff:
+        for line in diff_config(cfg, store, smap, cats, all_store):
+            print(line)
+        return
 
     if args.report:
         out = os.path.join(ROOT, "REDISTRIBUTION.md")
