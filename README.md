@@ -27,7 +27,7 @@ bash examples/run-demo.sh --dry-run     # anteprima (semina examples/out/)
 bash examples/run-demo.sh               # applica (scrive solo in examples/out/)
 python3 scripts/redistribute.py --validate --config examples/redistribution.example.yaml
 python3 scripts/redistribute.py --diff     --config examples/redistribution.example.yaml
-python3 -m pytest tests -q              # 24 test
+python3 -m pytest tests -q              # 32 test
 ```
 
 Comandi dalla **root del repo** (lo store d'esempio usa percorsi relativi).
@@ -69,6 +69,7 @@ Esempio completo e commentato: `examples/redistribution.example.yaml`.
 | `--dry-run` | conteggi `(aggiunte, rimosse)` per target — **non scrive** |
 | `--diff` | modifiche **voce per voce** (`+`/`-`) — **non scrive** |
 | `--validate` | valida il config; **exit 1** con l'elenco errori se invalido — **non scrive** |
+| `--adopt <src> --cat <cat>` | mette una skill nello store (`--mode copy\|link`) — **non modifica la skill** |
 | `--report` | rigenera `REDISTRIBUTION.md` |
 | `--config <file>` | usa un config diverso da `config/redistribution.yaml` |
 
@@ -79,6 +80,23 @@ Le categorie dello store nella root (`dev/`, `ops/`, `android/`, ...) e `_source
 Ognuno mette le **proprie** skill dove vuole (di default `<categoria>/<nome>/SKILL.md`) e le
 elenca nel proprio config.
 
+## Adottare una skill nello store
+
+Quando l'agente trova/scarica una skill (es. dopo una websearch), la mette nello store
+**senza modificarla**:
+
+```bash
+python3 scripts/redistribute.py --adopt ~/fetch/cool-skill --cat dev              # copia (default)
+python3 scripts/redistribute.py --adopt ~/fetch/cool-skill --cat dev --mode link  # symlink relativo
+```
+
+- **copy** (default): entra fisicamente nello store, **senza `.git`/dipendenze** → niente repo annidati.
+- **link**: lo store la *punta* (symlink **relativo**); la skill resta nel suo repo, la aggiorni con `git pull`.
+- **Mai edit del contenuto**: si sceglie solo nome (`--as`) e categoria (`--cat`).
+- **Config**: nessun edit automatico — stampa lo snippet. Se un harness usa `cat:dev`, la prende da solo.
+
+Poi il solito giro: `--validate` → `--diff` → apply.
+
 ## Usarlo da un agente (LLM)
 
 Vedi **[`SKILL.md`](SKILL.md)**: l'agente legge lo store + gli harness, **propone** il config,
@@ -87,13 +105,14 @@ aspetta la tua approvazione, poi esegue `--dry-run` e infine applica.
 ## Test
 
 ```bash
-python3 -m pytest tests -q                    # 24 test
+python3 -m pytest tests -q                    # 32 test
 ```
 
 Coprono i backend su store sintetici (nessuna scrittura fuori da `tmp`): symlink
 flat/categorized, `json_list` (preserve + idempotenza), preset openclaw, registry,
-report, `--dry-run` che non scrive, `--validate` (ok / errori / exit code) e
-`--diff` (aggiunte e rimosse voce per voce, onorando `preserve`).
+report, `--dry-run` che non scrive, `--validate` (ok / errori / exit code),
+`--diff` (aggiunte e rimosse voce per voce, onorando `preserve`) e `--adopt`
+(copy/link, strip VCS, rifiuti, dry-run).
 
 ## Struttura
 
@@ -101,7 +120,7 @@ report, `--dry-run` che non scrive, `--validate` (ok / errori / exit code) e
 skills-autodist-skill/
 ├── SKILL.md                         # livello agente (llm-driven, con approvazione)
 ├── scripts/redistribute.py          # il motore (registry di backend)
-├── tests/test_redistribute.py       # 24 test
+├── tests/test_redistribute.py       # 32 test
 ├── examples/
 │   ├── README.md                    # guida al primo avvio
 │   ├── redistribution.example.yaml  # config d'esempio eseguibile

@@ -16,6 +16,7 @@ Il motore e' **deterministico**: applica esattamente il config. **Tu (agente) pr
 approva, il motore esegue.** Non inventare mapping e non applicare senza approvazione.
 
 ```
+0. adotta      -> se hai trovato/scaricato una skill: `--adopt <src> --cat <cat>` (NON la modifichi)
 1. ispeziona   -> leggi lo store + gli harness presenti
 2. proponi     -> scrivi una mappa skill -> harness (mostrala all'utente)
 3. approva     -> l'utente conferma o corregge
@@ -24,6 +25,21 @@ approva, il motore esegue.** Non inventare mapping e non applicare senza approva
 6. applica     -> `--config ...`  (l'engine crea backup `<file>.bak-redistribute`)
 7. verifica    -> nessun symlink rotto; `--report` aggiornato
 ```
+
+## 0) Adotta una skill nuova (solo se ne hai trovata una)
+
+Se l'utente ti ha chiesto di aggiungere una skill (es. trovata sul web e gia' scaricata sul disco),
+mettila nello store **senza modificarne il contenuto**:
+
+```bash
+python3 scripts/redistribute.py --adopt <src> --cat <cat>            # copia (default, strip .git/dipendenze)
+python3 scripts/redistribute.py --adopt <src> --cat <cat> --mode link # symlink relativo (repo tracciato)
+python3 scripts/redistribute.py --adopt <src> --cat <cat> --dry-run  # anteprima
+```
+
+- Deve contenere `SKILL.md`; se la destinazione esiste serve `--force`.
+- **Non** editare la skill, **non** riscriverle il config a mano: l'adopt **stampa lo snippet**.
+  Se un harness usa `cat:<cat>`, la skill e' gia' inclusa (zero edit).
 
 ## 1) Ispeziona
 
@@ -91,4 +107,5 @@ find <harness_skills_dir> -maxdepth 2 -type l ! -exec test -e {} \; -print
 
 - Non committare le skill dell'utente nello store del repo (sono gitignorate di proposito).
 - Non eseguire l'applicazione senza approvazione esplicita.
+- Non modificare il contenuto di una skill adottata: `--adopt` **colloca e basta** (copy o link), mai edit.
 - Non modificare il file di config di un harness a mano quando un backend lo fa gia'.
