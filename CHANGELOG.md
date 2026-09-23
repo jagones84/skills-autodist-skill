@@ -2,6 +2,25 @@
 
 Tutte le modifiche rilevanti di questa repo. Formato: [Keep a Changelog](https://keepachangelog.com/), versioning [SemVer](https://semver.org/).
 
+## [1.1.0] - 2026-09-23
+
+### Added
+- Registry di backend (`BACKENDS`) + dispatch generico: `plan()` e `apply_harness()`
+  al posto della catena `if type == ...`.
+- Backend dichiarativo **`json_list`**: riscrive una lista dentro un file JSON
+  (`file`, `lists`/`pointer`, `skills`, `preserve`, `backup`) — aggiungere un harness
+  di questo tipo non richiede codice.
+- Suite di test (`tests/`, pytest) su tutti i backend; `requirements.txt`.
+- `examples/redistribution.example.yaml`: config generico d'esempio.
+
+### Fixed
+- `--dry-run` non crea piu' directory (prima `apply_flat` faceva `makedirs` anche in dry).
+- Il report non contiene piu' un timestamp volatile (output riproducibile).
+
+### Changed
+- Il preset `openclaw` onora `preserve` come gli altri backend.
+- `build_report()` usa `plan()`: nessun ramo hardcoded per-harness.
+
 ## [1.0.2] - 2026-09-23
 
 ### Fixed

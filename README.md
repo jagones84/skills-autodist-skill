@@ -38,9 +38,37 @@ Lo script e' **idempotente** e fa:
 
 ## Aggiungere una skill
 
-1. crea `Skills/<categoria>/<nome>/SKILL.md`;
-2. aggiungi `<nome>` (o la categoria) all'agente giusto in `config/redistribution.yaml`;
+1. crea `<categoria>/<nome>/SKILL.md` dentro lo store;
+2. aggiungi `<nome>` (o `cat:<categoria>`) all'harness giusto in `config/redistribution.yaml`;
 3. `python3 scripts/redistribute.py`.
 
-Dettagli operativi e stato corrente: `REDISTRIBUTION.md` e, sul DGX,
-`~/Repositories/.agent/HANDOFF.md`.
+## Il motore: backend generici
+
+`scripts/redistribute.py` e' **generico**: ogni harness dichiara un `type` e il motore lo
+applica via un registry (`BACKENDS`). Aggiungere un harness path-based = **solo** una voce
+nel config, zero codice.
+
+| `type`        | Cosa fa                                                          | Chiavi |
+|---------------|------------------------------------------------------------------|--------|
+| `flat`        | symlink piatti `<skills_dir>/<skill>`                            | `skills_dir`, `skills` |
+| `categorized` | symlink per categoria `<skills_dir>/<cat>/<skill>`               | `skills_dir`, `skills` |
+| `json_list`   | riscrive una lista in un file JSON (dichiarativo)                | `file`, `lists`/`pointer`, `skills`, `preserve`, `backup` |
+| `openclaw`    | preset: pool flat (`skills_dir`+`library_dir`) + liste per-agente | `config`, `agents`, `preserve` |
+
+`preserve`: `not_in_store` (default, tiene le voci non dello store) | `none` (riscrive solo
+con le skill dello store). Un **nuovo backend** serve solo per una nuova *forma* di layout.
+
+Config d'esempio generico: `examples/redistribution.example.yaml`. Il config reale di questa
+istanza e' `config/redistribution.yaml`.
+
+## Test
+
+```bash
+python3 -m pytest tests -q
+```
+
+Coprono i backend su store sintetici (nessuna scrittura fuori da `tmp`): symlink
+flat/categorized, `json_list` (preserve + idempotenza), preset openclaw, registry,
+report e `--dry-run` che non scrive.
+
+Dettagli operativi e stato corrente: `REDISTRIBUTION.md`.
