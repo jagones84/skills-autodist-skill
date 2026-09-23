@@ -2,6 +2,24 @@
 
 Tutte le modifiche rilevanti di questa repo. Formato: [Keep a Changelog](https://keepachangelog.com/), versioning [SemVer](https://semver.org/).
 
+## [1.6.0] - 2026-09-23
+
+### Added
+- **`--adopt <src> --cat <cat>`**: colloca una skill nello store **senza modificarne il contenuto**
+  (nessun edit di `SKILL.md`, nessuna "pulizia": si colloca e basta).
+  - **nome**: `--as` > `name:` del frontmatter di `SKILL.md` > nome cartella (letti, non scritti);
+  - **`--mode copy`** (default): copia la skill; **strippa `.git`/`.venv`/`node_modules`/`__pycache__`**
+    (cosi' non si annidano repo git e non passa la storia/segreti della sorgente) — `--no-strip` per copiare 1:1;
+  - **`--mode link`**: symlink **relativo** verso la sorgente (la skill resta nel suo repo: `git pull` la aggiorna);
+  - rifiuta se manca `SKILL.md` o se la destinazione esiste (`--force` per sostituire); `--dry-run` non scrive.
+- **`wire_snippet()`**: `--adopt` **non tocca il config** (riscriverlo via YAML distruggerebbe i commenti).
+  Stampa lo snippet; con `cat:<cat>` il wiring e' **automatico** (zero edit).
+- `resolve_name()` e `_skill_name()` (lettura sola del frontmatter).
+- Test: **32** (erano 24).
+
+### Changed
+- docstring + `--help` con i nuovi flag (`--adopt`, `--cat`, `--as`, `--mode`, `--no-strip`, `--force`).
+
 ## [1.5.0] - 2026-09-23
 
 ### Added

@@ -347,3 +347,92 @@ def test_main_diff_writes_nothing(tmp_path, monkeypatch):
     assert not d.exists()
 
 
+# ------------------------------------------------------------------------- adopt
+def make_skill(tmp_path, name="myskill", with_git=True):
+    """Una skill-sorgente finta: cartella con SKILL.md (frontmatter `name:`)."""
+    src = tmp_path / "src" / name
+    src.mkdir(parents=True)
+    (src / "SKILL.md").write_text("---\nname: %s\n---\n# %s\n" % (name, name))
+    if with_git:
+        (src / ".git").mkdir()
+        (src / ".git" / "config").write_text("x")
+    return src
+
+
+def test_resolve_name_as_then_skill_md_then_dir(tmp_path):
+    src = make_skill(tmp_path, "from-md")
+    assert R.resolve_name(str(src), "explicit") == "explicit"
+    assert R.resolve_name(str(src)) == "from-md"
+    nofront = tmp_path / "nofront"
+    nofront.mkdir()
+    (nofront / "SKILL.md").write_text("# x")
+    assert R.resolve_name(str(nofront)) == "nofront"
+
+
+def test_adopt_copy_places_skill_and_strips_vcs(tmp_path):
+    store = make_store(tmp_path)
+    src = make_skill(tmp_path, "newbie")
+    dest, name = R.adopt_skill(str(store), str(src), "dev")
+    assert name == "newbie"
+    assert (Path(dest) / "SKILL.md").is_file()
+    assert not (Path(dest) / ".git").exists()      # VCS strippato di default
+    assert "newbie" in R.store_map(str(store))
+
+
+def test_adopt_copy_no_strip_keeps_vcs(tmp_path):
+    store = make_store(tmp_path)
+    src = make_skill(tmp_path, "newbie")
+    dest, _ = R.adopt_skill(str(store), str(src), "dev", strip=False)
+    assert (Path(dest) / ".git").is_dir()
+
+
+def test_adopt_link_is_relative_and_resolves(tmp_path):
+    store = make_store(tmp_path)
+    src = make_skill(tmp_path, "newbie")
+    dest, _ = R.adopt_skill(str(store), str(src), "dev", mode="link")
+    assert os.path.islink(dest)
+    assert not os.path.isabs(os.readlink(dest))    # relativo (robusto ai move)
+    assert os.path.exists(dest)                     # risolve
+    assert "newbie" in R.store_map(str(store))
+
+
+def test_adopt_rejects_non_skill_and_existing_dest(tmp_path):
+    store = make_store(tmp_path)
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    with pytest.raises(ValueError):
+        R.adopt_skill(str(store), str(empty), "dev")
+    src = make_skill(tmp_path, "newbie")
+    R.adopt_skill(str(store), str(src), "dev")
+    with pytest.raises(ValueError):
+        R.adopt_skill(str(store), str(src), "dev")          # destinazione occupata
+    R.adopt_skill(str(store), str(src), "dev", force=True)  # --force la sostituisce
+
+
+def test_adopt_dry_run_writes_nothing(tmp_path):
+    store = make_store(tmp_path)
+    src = make_skill(tmp_path, "newbie")
+    dest, name = R.adopt_skill(str(store), str(src), "dev", dry=True)
+    assert name == "newbie"
+    assert not os.path.lexists(dest)
+    assert "newbie" not in R.store_map(str(store))
+
+
+def test_wire_snippet_mentions_cat_and_name():
+    text = "\n".join(R.wire_snippet("dev", "newbie"))
+    assert "cat:dev" in text and "newbie" in text
+
+
+def test_main_adopt_end_to_end(tmp_path, monkeypatch, capsys):
+    store = make_store(tmp_path)
+    src = make_skill(tmp_path, "newbie")
+    cfgf = tmp_path / "cfg.yaml"
+    cfgf.write_text("version: 2\n" f"store: {store}\n" "harnesses: {}\n")
+    monkeypatch.setattr(sys, "argv",
+                        ["redistribute.py", "--config", str(cfgf), "--adopt", str(src), "--cat", "dev"])
+    R.main()
+    out = capsys.readouterr().out
+    assert "newbie" in out
+    assert (store / "dev" / "newbie" / "SKILL.md").is_file()
+
+
