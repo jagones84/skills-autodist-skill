@@ -79,6 +79,28 @@ def test_apply_flat_prunes_stale_and_keeps_native(tmp_path):
     assert (d / "native").is_dir()
 
 
+def test_apply_flat_keep_local_preserves_external_and_native(tmp_path):
+    """keep_local=True non tocca symlink fuori-store ne' cartelle native."""
+    store = make_store(tmp_path)
+    smap = R.store_map(str(store))
+    d = tmp_path / "flat"
+    d.mkdir()
+    # simulo skill locale di Anthropic scaricata via plugin (cartella nativa)
+    (d / "doc-maintenance--abc123").mkdir()
+    # simulo symlink esterno allo store (paperclip ecc.)
+    external = tmp_path / "external-target"
+    external.mkdir()
+    (external / "my-plugin-skill").mkdir()
+    os.symlink(str(external / "my-plugin-skill"), d / "my-plugin-skill")
+    # applico con keep_local
+    a, r = R.apply_flat(str(d), ["a", "b"], smap, str(store), keep_local=True)
+    assert r == 0                       # nulla rimosso
+    assert (d / "doc-maintenance--abc123").is_dir()    # nativo preservato
+    assert (d / "my-plugin-skill").is_symlink()        # esterno preservato
+    assert (d / "a").is_symlink()                      # aggiunto
+    assert (d / "b").is_symlink()                      # aggiunto
+
+
 # --------------------------------------------------------- backend: categorized
 def test_apply_categorized_places_and_repairs(tmp_path):
     store = make_store(tmp_path)
@@ -500,5 +522,72 @@ def test_main_repair_end_to_end(tmp_path, monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "riparati" in out.lower()
     assert os.path.exists(d / "a")
+
+
+# --------------------------------------------------------------------------- only
+def test_main_only_limits_to_selected_harness(tmp_path, monkeypatch):
+    store = make_store(tmp_path)
+    d1 = tmp_path / "h1"
+    d2 = tmp_path / "h2"
+    cfgf = tmp_path / "cfg.yaml"
+    cfgf.write_text("version: 2\n" f"store: {store}\n" "harnesses:\n"
+                    "  one:\n    type: flat\n" f"    skills_dir: {d1}\n"
+                    "    skills: [a]\n"
+                    "  two:\n    type: flat\n" f"    skills_dir: {d2}\n"
+                    "    skills: [b]\n")
+    monkeypatch.setattr(sys, "argv",
+                        ["redistribute.py", "--config", str(cfgf), "--only", "one"])
+    R.main()
+    assert os.path.islink(d1 / "a")
+    assert not d2.exists()  # l'harness non selezionato non viene toccato
+
+
+def test_main_only_unknown_harness_exits(tmp_path, monkeypatch):
+    store = make_store(tmp_path)
+    cfgf = tmp_path / "cfg.yaml"
+    cfgf.write_text("version: 2\n" f"store: {store}\n" "harnesses:\n"
+                    "  one:\n    type: flat\n" f"    skills_dir: {tmp_path / 'd'}\n"
+                    "    skills: [a]\n")
+    monkeypatch.setattr(sys, "argv",
+                        ["redistribute.py", "--config", str(cfgf), "--only", "ghost"])
+    with pytest.raises(SystemExit) as ei:
+        R.main()
+    assert ei.value.code == 1
+
+
+def test_link_payload_resolves_through_symlinked_parent(tmp_path):
+    """Regression: the kernel resolves `..` AFTER following symlinks, so the
+    payload must be computed from the REAL parent dir. When the symlink sits at
+    a different depth than its target (here `link/` vs `pool/real/`), a lexical
+    relpath lands one level too deep."""
+    real = tmp_path / "pool" / "real"
+    real.mkdir(parents=True)
+    alias_parent = tmp_path / "link"                  # shallower than `pool/real`
+    os.symlink("pool/real", alias_parent)
+    target = tmp_path / "store" / "dev" / "a"
+    target.mkdir(parents=True)
+    payload = R.link_payload(str(target), str(alias_parent / "a"))
+    assert payload == "../../store/dev/a"             # 2 ups (real depth), not 1
+    os.symlink(payload, real / "a")
+    assert os.path.exists(real / "a")
+    assert os.readlink(real / "a") == payload
+
+
+def test_apply_flat_survives_symlinked_skills_dir(tmp_path):
+    """End-to-end: `skills_dir` is a symlink at a DIFFERENT depth than its
+    target. With a lexical payload every skill silently vanishes from the harness
+    after an --apply (the 2026-10-23 outage: 180 -> 79 visible skills)."""
+    store = make_store(tmp_path)
+    smap = R.store_map(str(store))
+    pool = tmp_path / "pool" / "real"
+    pool.mkdir(parents=True)
+    skills_dir = tmp_path / "link"                    # the harness points HERE
+    os.symlink("pool/real", skills_dir)               # ...real dir is `pool/real`
+    R.apply_flat(str(skills_dir), ["a"], smap, str(store))
+    link = skills_dir / "a"
+    assert os.path.islink(link)
+    assert os.path.realpath(link) == os.path.realpath(store / "dev" / "a")
+    assert os.path.exists(os.path.join(link, "SKILL.md"))
+
 
 

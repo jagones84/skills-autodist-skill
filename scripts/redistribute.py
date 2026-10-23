@@ -36,6 +36,18 @@ BACKUP_SUFFIX = ".bak-redistribute"
 STRIP_DIRS = {".git", ".venv", "venv", "node_modules", "__pycache__", ".pytest_cache"}
 
 
+def link_payload(target, link_path):
+    """Relative symlink payload for `link_path` -> `target`.
+
+    The payload MUST be computed against the REAL path of the link's parent dir:
+    the kernel resolves `..` after following symlinks, so a lexical
+    `os.path.relpath` goes one level too deep whenever the parent is itself a
+    symlink (harness category dirs are symlinks into the store). Symptom:
+    every skill silently disappears after an `--apply`.
+    """
+    return os.path.relpath(target, os.path.realpath(os.path.dirname(link_path)))
+
+
 # ---------------------------------------------------------------- config/store
 def load_config(path):
     """Carica il config YAML (richiede PyYAML)."""
@@ -129,13 +141,19 @@ def _preserve_fn(hcfg, all_store):
 
 
 # ------------------------------------------------------------------- back-end
-def apply_flat(target_dir, names, smap, store, dry=False):
-    """Symlink piatti: <target_dir>/<skill> -> <store>/<cat>/<skill>."""
+def apply_flat(target_dir, names, smap, store, dry=False, keep_local=False):
+    """Symlink piatti: <target_dir>/<skill> -> <store>/<cat>/<skill>.
+
+    keep_local=True: NON rimuove entry locali (non-symlink) e NON rimuove
+    symlink che puntano altrove (fuori dallo store). Solo aggiunge/ripara.
+    Serve per harness che hanno skill locali proprie (es. ~/.claude/skills
+    con skill scaricate via plugin Anthropic).
+    """
     exists = os.path.isdir(target_dir)
     if not dry:
         os.makedirs(target_dir, exist_ok=True)
     added = removed = 0
-    if exists:
+    if exists and not keep_local:
         for existing in list(os.listdir(target_dir)):
             fp = os.path.join(target_dir, existing)
             if os.path.islink(fp) and existing not in names:
@@ -145,7 +163,7 @@ def apply_flat(target_dir, names, smap, store, dry=False):
     for n in names:
         fp = os.path.join(target_dir, n)
         tgt = os.path.join(store, smap[n], n)
-        rel = os.path.relpath(tgt, target_dir)   # link RELATIVO: sopravvive ai move
+        rel = link_payload(tgt, fp)   # link RELATIVO: sopravvive ai move
         if os.path.islink(fp):
             if os.readlink(fp) != rel:
                 if not dry:
@@ -161,11 +179,14 @@ def apply_flat(target_dir, names, smap, store, dry=False):
     return added, removed
 
 
-def apply_categorized(target_dir, names, smap, store, dry=False):
-    """Symlink per categoria: <target_dir>/<store_cat>/<skill>."""
+def apply_categorized(target_dir, names, smap, store, dry=False, keep_local=False):
+    """Symlink per categoria: <target_dir>/<store_cat>/<skill>.
+
+    keep_local=True: preserva categorie locali e skill fuori-store.
+    """
     names = set(names)
     added = removed = 0
-    if os.path.isdir(target_dir):
+    if os.path.isdir(target_dir) and not keep_local:
         for cat in list(os.listdir(target_dir)):
             cp = os.path.join(target_dir, cat)
             if not os.path.isdir(cp):
@@ -190,10 +211,11 @@ def apply_categorized(target_dir, names, smap, store, dry=False):
             catdir = os.path.join(target_dir, cat)
             if not dry:
                 os.makedirs(catdir, exist_ok=True)
-                os.symlink(os.path.relpath(want, catdir), os.path.join(catdir, n))
+                link = os.path.join(catdir, n)
+                os.symlink(link_payload(want, link), link)
             added += 1
         else:
-            rel = os.path.relpath(want, os.path.dirname(found))   # link RELATIVO
+            rel = link_payload(want, found)   # link RELATIVO
             if os.path.islink(found) and os.readlink(found) != rel:
                 if not dry:  # symlink al posto sbagliato o dangling: ripara
                     os.remove(found)
@@ -208,12 +230,14 @@ def _single_plan(hcfg, cats, smap):
 
 
 def _flat_apply(hcfg, plan, smap, store, all_store, dry):
-    a, r = apply_flat(os.path.expanduser(hcfg["skills_dir"]), plan["*"], smap, store, dry)
+    keep_local = bool(hcfg.get("keep_local", False))
+    a, r = apply_flat(os.path.expanduser(hcfg["skills_dir"]), plan["*"], smap, store, dry, keep_local=keep_local)
     return {"*": (a, r)}
 
 
 def _categorized_apply(hcfg, plan, smap, store, all_store, dry):
-    a, r = apply_categorized(os.path.expanduser(hcfg["skills_dir"]), plan["*"], smap, store, dry)
+    keep_local = bool(hcfg.get("keep_local", False))
+    a, r = apply_categorized(os.path.expanduser(hcfg["skills_dir"]), plan["*"], smap, store, dry, keep_local=keep_local)
     return {"*": (a, r)}
 
 
@@ -476,7 +500,7 @@ def repair_link(fp, name, smap, store, dry=False):
     if not dry:
         if os.path.islink(fp):
             os.remove(fp)
-        os.symlink(os.path.relpath(target, os.path.dirname(fp)), fp)
+        os.symlink(link_payload(target, fp), fp)
     return True
 
 
@@ -560,7 +584,7 @@ def adopt_skill(store, src, cat, name=None, mode="copy", strip=True, force=False
         if mode == "copy":
             shutil.copytree(src, dest, ignore=_strip_ignore(strip))
         else:
-            os.symlink(os.path.relpath(src, catdir), dest)
+            os.symlink(link_payload(src, dest), dest)
     return dest, name
 
 
@@ -642,10 +666,19 @@ def main():
     ap.add_argument("--mode", default="copy", help="copy (default) | link")
     ap.add_argument("--no-strip", action="store_true", help="con --adopt copia anche .git/dipendenze")
     ap.add_argument("--force", action="store_true", help="con --adopt sostituisce la destinazione esistente")
+    ap.add_argument("--only", action="append", default=[], metavar="HARNESS",
+                    help="limita l'azione a uno o piu harness (ripetibile)")
     args = ap.parse_args()
 
     cfg = load_config(args.config)
     store = os.path.expanduser(cfg.get("store", "")) if isinstance(cfg, dict) else ""
+
+    if args.only and isinstance(cfg, dict):
+        unknown = sorted(h for h in args.only if h not in cfg.get("harnesses", {}))
+        if unknown:
+            print("ERRORE: harness sconosciuto: " + ", ".join(unknown))
+            sys.exit(1)
+        cfg = {**cfg, "harnesses": {h: cfg["harnesses"][h] for h in args.only}}
 
     if args.adopt:
         if not args.cat:

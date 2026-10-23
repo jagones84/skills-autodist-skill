@@ -1,34 +1,41 @@
 # --- operativo ---
 trash/
-python-dataviz/
+python-dataviz/node_modules/
 node_modules/
 .venv/
 venv/
 __pycache__/
 .pytest_cache/
-*.bak-*
 *.bak
+*.bak-*
 
 # --- istanza locale: le MIE skill + sorgenti esterne (fuori dal repo pubblico) ---
-/dev/
-/ops/
+# Lo store e' una directory di SYMLINK verso i repo nativi: niente di questo
+# deve finire nel repo pubblico.
 /android/
-/research/
 /data/
+/dev/
+/lark/
+/launchfast/
 /media/
-/tg/
 /meta/
+/mobile/
+/omh/
+/ops/
+/research/
+/tg/
 /_sources/
-/config/redistribution.yaml
-/REDISTRIBUTION.md
+config/redistribution.yaml
+config/*.bak*
+REDISTRIBUTION.md
 
 # --- output di demo/esecuzione ---
-/examples/out/
+examples/out/
 
 # --- segreti: MAI committare (difensivo) ---
 .env
 .env.*
-*.env
+.env*
 *.pem
 *.key
 *.p12
