@@ -71,7 +71,7 @@ If the repo already contains recent audit results or blockers, continue from the
 Run:
 
 ```bash
-ssh dgx bash /home/jagones/Repositories/disk-audit-dgx/scripts/dgx/prepare_linux_scripts.sh
+ssh dgx bash /home/jagones/Repositories/DirStat_Skill/scripts/linux/prepare_linux_scripts.sh
 ```
 
 Expected:
@@ -83,7 +83,7 @@ Expected:
 Run:
 
 ```bash
-ssh dgx /home/jagones/Repositories/disk-audit-dgx/scripts/dgx/verify_ncdu.sh
+ssh dgx /home/jagones/Repositories/DirStat_Skill/scripts/linux/verify_ncdu.sh
 ```
 
 Expected:
@@ -94,7 +94,7 @@ Expected:
 If missing, use:
 
 ```bash
-ssh dgx /home/jagones/Repositories/disk-audit-dgx/scripts/dgx/install_ncdu.sh
+ssh dgx /home/jagones/Repositories/DirStat_Skill/scripts/linux/install_ncdu.sh
 ```
 
 If this path still requires operator privileges, stop and ask for them. Do not invent package-manager shortcuts outside repo workflow.
@@ -104,7 +104,7 @@ If this path still requires operator privileges, stop and ask for them. Do not i
 Run:
 
 ```bash
-ssh dgx /home/jagones/Repositories/disk-audit-dgx/scripts/dgx/run_audit.sh
+ssh dgx /home/jagones/Repositories/DirStat_Skill/scripts/linux/run_audit.sh
 ```
 
 Expected:
@@ -118,7 +118,7 @@ Expected:
 Run:
 
 ```bash
-ssh dgx /home/jagones/Repositories/disk-audit-dgx/scripts/dgx/show_latest_audit.sh
+ssh dgx /home/jagones/Repositories/DirStat_Skill/scripts/linux/show_latest_audit.sh
 ```
 
 Read in this order:
@@ -135,7 +135,7 @@ Do **not** start from the raw export unless the compact reports are missing or c
 Run:
 
 ```bash
-ssh dgx /home/jagones/Repositories/disk-audit-dgx/scripts/dgx/find_safe_candidates.sh
+ssh dgx /home/jagones/Repositories/DirStat_Skill/scripts/linux/find_safe_candidates.sh
 ```
 
 This helper focuses on the highest-confidence deletion classes:
@@ -199,16 +199,18 @@ The final answer should always contain:
 ## Quick Reference
 
 ```bash
-ssh dgx bash /home/jagones/Repositories/disk-audit-dgx/scripts/dgx/prepare_linux_scripts.sh
-ssh dgx /home/jagones/Repositories/disk-audit-dgx/scripts/dgx/verify_ncdu.sh
-ssh dgx /home/jagones/Repositories/disk-audit-dgx/scripts/dgx/run_audit.sh
-ssh dgx /home/jagones/Repositories/disk-audit-dgx/scripts/dgx/show_latest_audit.sh
-ssh dgx /home/jagones/Repositories/disk-audit-dgx/scripts/dgx/find_safe_candidates.sh
+ssh dgx bash /home/jagones/Repositories/DirStat_Skill/scripts/linux/prepare_linux_scripts.sh
+ssh dgx /home/jagones/Repositories/DirStat_Skill/scripts/linux/verify_ncdu.sh
+ssh dgx /home/jagones/Repositories/DirStat_Skill/scripts/linux/run_audit.sh
+ssh dgx /home/jagones/Repositories/DirStat_Skill/scripts/linux/show_latest_audit.sh
+ssh dgx /home/jagones/Repositories/DirStat_Skill/scripts/linux/find_safe_candidates.sh
 ```
 
 ## Current Naming
 
-The repository path is still `disk-audit-dgx` for compatibility with existing scripts and absolute paths.
+The repository directory is `/home/jagones/Repositories/DirStat_Skill` and the
+Linux helper scripts live in `scripts/linux/`. The older path
+`Repositories/disk-audit-dgx/scripts/dgx/` no longer exists on disk.
 
 The **public skill identity** is `safe-delete-advisor`.
 

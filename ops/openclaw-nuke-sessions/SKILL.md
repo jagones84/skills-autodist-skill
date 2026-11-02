@@ -134,8 +134,7 @@ tabelle) e per le canoniche (deve essere **> 0**).
 ### 7. Riavvio gateway (se fermato al punto 4)
 
 ```bash
-ssh dgx "bash ~/.openclaw/scripts/start_openclaw_withbrows.sh &"
-# oppure il comando specifico usato in questa install
+ssh dgx "openclaw daemon restart"
 ```
 
 ## Schema DB Di Riferimento
@@ -203,7 +202,7 @@ ssh dgx "cp -a ~/.openclaw/agents/coordinator/agent/openclaw-agent.sqlite.bak-pr
             ~/.openclaw/agents/coordinator/agent/openclaw-agent.sqlite"
 
 # 3. Riavviare il gateway
-ssh dgx "bash ~/.openclaw/scripts/start_openclaw_withbrows.sh &"
+ssh dgx "openclaw daemon restart"
 ```
 
 **IMPORTANTE**: il rollback sovrascrive TUTTO lo stato del DB, incluse eventuali

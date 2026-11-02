@@ -19,7 +19,7 @@ The reusable script ships with this skill — **use it in preference to any hand
 
 ```bash
 /home/jagones/ComfyUI/venv/bin/python \
-  /home/jagones/.hermes/skills/media/local-vlm-vision/scripts/caption_local.py <image.png>
+  /home/jagones/Repositories/skills-autodist-skill/ops/local-vlm-vision/scripts/caption_local.py <image.png>
 ```
 
 (or `skill_view(name='local-vlm-vision', file_path='scripts/caption_local.py')` to re-read it). It hardcodes the correct weights path, the explicit `Qwen3VLForConditionalGeneration` class, and `sdpa`; pass a second arg only for a non-default weights dir.

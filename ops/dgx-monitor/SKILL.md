@@ -15,7 +15,7 @@ Output: **un JSON a riga unica**.
 ## Uso
 
 ```bash
-python3 ~/Repositories/Skills/dgx-monitor/scripts/dgx-monitor.py
+python3 ~/Repositories/skills-autodist-skill/ops/dgx-monitor/scripts/dgx-monitor.py
 ```
 
 ## Cosa riporta
