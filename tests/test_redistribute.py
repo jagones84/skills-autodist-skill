@@ -396,7 +396,7 @@ def test_resolve_name_as_then_skill_md_then_dir(tmp_path):
 def test_adopt_copy_places_skill_and_strips_vcs(tmp_path):
     store = make_store(tmp_path)
     src = make_skill(tmp_path, "newbie")
-    dest, name = R.adopt_skill(str(store), str(src), "dev")
+    dest, name = R.adopt_skill(str(store), str(src), "dev", mode="copy")
     assert name == "newbie"
     assert (Path(dest) / "SKILL.md").is_file()
     assert not (Path(dest) / ".git").exists()      # VCS strippato di default
@@ -406,7 +406,7 @@ def test_adopt_copy_places_skill_and_strips_vcs(tmp_path):
 def test_adopt_copy_no_strip_keeps_vcs(tmp_path):
     store = make_store(tmp_path)
     src = make_skill(tmp_path, "newbie")
-    dest, _ = R.adopt_skill(str(store), str(src), "dev", strip=False)
+    dest, _ = R.adopt_skill(str(store), str(src), "dev", mode="copy", strip=False)
     assert (Path(dest) / ".git").is_dir()
 
 
@@ -588,6 +588,98 @@ def test_apply_flat_survives_symlinked_skills_dir(tmp_path):
     assert os.path.islink(link)
     assert os.path.realpath(link) == os.path.realpath(store / "dev" / "a")
     assert os.path.exists(os.path.join(link, "SKILL.md"))
+
+
+# ------------------------------------------------- adopt: link is the DEFAULT
+def test_adopt_defaults_to_link_not_copy(tmp_path):
+    """Regression (2026-11-02): the default was `copy`, so every adoption that
+    forgot `--mode link` produced a real directory in the store. 79 entries were
+    duplicated that way. The default MUST be a symlink."""
+    store = make_store(tmp_path)
+    src = make_skill(tmp_path, "newbie")
+    dest, _ = R.adopt_skill(str(store), str(src), "dev")
+    assert os.path.islink(dest)
+    assert os.path.realpath(dest) == os.path.realpath(src)
+
+
+def test_adopt_link_rejects_source_inside_store(tmp_path):
+    """A link whose target lives in the store is a self-reference (cycle)."""
+    store = make_store(tmp_path)
+    inside = store / "dev" / "a"
+    with pytest.raises(ValueError):
+        R.adopt_skill(str(store), str(inside), "ops")
+
+
+# ----------------------------------------------------------------------- audit
+def test_audit_accepts_links_and_then_flags_undeclared_copy(tmp_path):
+    store = make_store(tmp_path)
+    src = make_skill(tmp_path, "linked")
+    R.adopt_skill(str(store), str(src), "dev")
+
+    errors, warnings, rows = R.audit_store(str(store))
+    kinds = dict(rows)
+    assert kinds["dev/linked"] == "link"
+    assert kinds["dev/a"] == "copy" and kinds["dev/b"] == "copy"
+    # the synthetic store holds real dirs that nobody declared: the audit MUST
+    # refuse them (this is exactly the 2026-11-02 defect: 79 undeclared copies)
+    assert len(errors) == 3
+    assert all("non dichiarata" in e for e in errors)
+    assert warnings == []
+
+    # declaring every real dir makes the audit pass
+    (store / ".vendored.json").write_text(json.dumps({"skills": {
+        "dev/a": {"reason": "x"}, "dev/b": {"reason": "x"},
+        "ops/c": {"reason": "x"}, "dev/linked": {"reason": "x"}}}))
+    errors, warnings, _rows = R.audit_store(str(store))
+    assert errors == []
+
+
+def test_audit_flags_broken_link_circular_and_missing_skill_md(tmp_path):
+    store = make_store(tmp_path)
+    (store / "dev" / "broken").symlink_to("/nonexistent/old/x")          # dangling
+    (store / "dev" / "self").symlink_to(store / "ops" / "c")             # inside store
+    nofile = store / "dev" / "noskill"
+    nofile.mkdir()                                                       # no SKILL.md
+    (store / ".vendored.json").write_text(json.dumps({"skills": {
+        "dev/noskill": {"reason": "x"}, "dev/a": {"reason": "x"},
+        "dev/b": {"reason": "x"}, "ops/c": {"reason": "x"}}}))
+    errors, _w, _r = R.audit_store(str(store))
+    joined = "\n".join(errors)
+    assert "ROTTO" in joined and "dev/broken" in joined
+    assert "circolare" in joined and "dev/self" in joined
+    assert "nessun SKILL.md" in joined and "dev/noskill" in joined
+
+
+def test_audit_flags_orphan_vendored_declaration(tmp_path):
+    store = make_store(tmp_path)
+    (store / ".vendored.json").write_text(json.dumps({"skills": {
+        "dev/ghost": {"reason": "x"}, "dev/a": {"reason": "x"},
+        "dev/b": {"reason": "x"}, "ops/c": {"reason": "x"}}}))
+    errors, _w, _r = R.audit_store(str(store))
+    assert any("orfana" in e and "dev/ghost" in e for e in errors)
+
+
+def test_audit_flags_vendored_declared_but_is_a_symlink(tmp_path):
+    store = make_store(tmp_path)
+    src = make_skill(tmp_path, "linked")
+    R.adopt_skill(str(store), str(src), "dev")
+    (store / ".vendored.json").write_text(json.dumps({"skills": {
+        "dev/a": {"reason": "x"}, "dev/b": {"reason": "x"},
+        "ops/c": {"reason": "x"}, "dev/linked": {"reason": "x"}}}))
+    errors, warnings, _r = R.audit_store(str(store))
+    assert errors == []
+    assert any("vendored ma e' un symlink" in w for w in warnings)
+
+
+def test_main_audit_exits_nonzero_on_undeclared_copy(tmp_path, monkeypatch, capsys):
+    store = make_store(tmp_path)
+    cfgf = tmp_path / "cfg.yaml"
+    cfgf.write_text("version: 2\n" f"store: {store}\n" "harnesses: {}\n")
+    monkeypatch.setattr(sys, "argv", ["redistribute.py", "--config", str(cfgf), "--audit"])
+    with pytest.raises(SystemExit) as ei:
+        R.main()
+    assert ei.value.code == 1
+    assert "audit FALLITO" in capsys.readouterr().out
 
 
 

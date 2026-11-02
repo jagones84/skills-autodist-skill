@@ -1,0 +1,400 @@
+{
+  "_comment": "Entries whose payload has no native repository. They are REAL directories (not symlinks) and are versioned in this repo so the copy has git history. Regenerate with --audit when adopting.",
+  "skills": {
+    "android/android-app-build-deploy": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 3,
+      "observed_source": "/home/jagones/.openclaw/agents/coordinator/workshop-skills/android-app-build-deploy"
+    },
+    "android/android-game-dgx": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 3,
+      "observed_source": null
+    },
+    "android/android-install-launch-debug": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 1,
+      "observed_source": null
+    },
+    "android/android-native-dev": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 13,
+      "observed_source": null
+    },
+    "android/android-studio-workflow": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 36,
+      "observed_source": null
+    },
+    "android/android-tailscale-adb": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 2,
+      "observed_source": "C:\\Users\\giova\\.trae\\skills\\android-tailscale-adb"
+    },
+    "android/connect-to-dgx-spark": {
+      "reason": "payload lives only in the store; the same-named copies elsewhere are duplicates inside other harnesses or non-git dirs, not upstreams",
+      "files": 3,
+      "observed_source": "/home/jagones/Repositories/maka-mods/desktop/workspaces/default/skills/connect-to-dgx-spark"
+    },
+    "android/termux-ssh": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 2,
+      "observed_source": "/home/jagones/.hermes/profiles/sabrina-cccc/skills/android/termux-ssh"
+    },
+    "data/archify-diagrams": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 1,
+      "observed_source": null
+    },
+    "data/data-analysis": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 2,
+      "observed_source": "/home/jagones/Repositories/deer-flow/backend/.deer-flow/skills_view/public/data-analysis"
+    },
+    "dev/local-mcp-servers-bridge": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 4,
+      "observed_source": null
+    },
+    "dev/mcp-server-builder-guide": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 10,
+      "observed_source": null
+    },
+    "dev/mcp-usage": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 4,
+      "observed_source": null
+    },
+    "dev/resolving-merge-conflicts": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 2,
+      "observed_source": null
+    },
+    "dev/safe-delete-advisor": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 1,
+      "observed_source": null
+    },
+    "dev/unfuck-my-git-state": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 11,
+      "observed_source": null
+    },
+    "dev/using-superpowers-open": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 1,
+      "observed_source": null
+    },
+    "dev/verification-gate": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 1,
+      "observed_source": null
+    },
+    "lark/lark-approval": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 17,
+      "observed_source": "C:\\Users\\giova\\.trae\\plugins\\trae-remote-official\\lark\\1.0.5\\skills\\lark-approval"
+    },
+    "lark/lark-attendance": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 1,
+      "observed_source": "C:\\Users\\giova\\.trae\\plugins\\trae-remote-official\\lark\\1.0.5\\skills\\lark-attendance"
+    },
+    "lark/lark-base": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 26,
+      "observed_source": "C:\\Users\\giova\\.trae\\plugins\\trae-remote-official\\lark\\1.0.5\\skills\\lark-base"
+    },
+    "lark/lark-calendar": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 15,
+      "observed_source": "C:\\Users\\giova\\.trae\\plugins\\trae-remote-official\\lark\\1.0.5\\skills\\lark-calendar"
+    },
+    "lark/lark-contact": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 4,
+      "observed_source": "C:\\Users\\giova\\.trae\\plugins\\trae-remote-official\\lark\\1.0.5\\skills\\lark-contact"
+    },
+    "lark/lark-doc": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 44,
+      "observed_source": "C:\\Users\\giova\\.trae\\plugins\\trae-remote-official\\lark\\1.0.5\\skills\\lark-doc"
+    },
+    "lark/lark-drive": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 61,
+      "observed_source": "C:\\Users\\giova\\.trae\\plugins\\trae-remote-official\\lark\\1.0.5\\skills\\lark-drive"
+    },
+    "lark/lark-event": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 8,
+      "observed_source": "C:\\Users\\giova\\.trae\\plugins\\trae-remote-official\\lark\\1.0.5\\skills\\lark-event"
+    },
+    "lark/lark-im": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 61,
+      "observed_source": "C:\\Users\\giova\\.trae\\plugins\\trae-remote-official\\lark\\1.0.5\\skills\\lark-im"
+    },
+    "lark/lark-mail": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 36,
+      "observed_source": "C:\\Users\\giova\\.trae\\plugins\\trae-remote-official\\lark\\1.0.5\\skills\\lark-mail"
+    },
+    "lark/lark-markdown": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 6,
+      "observed_source": "C:\\Users\\giova\\.trae\\plugins\\trae-remote-official\\lark\\1.0.5\\skills\\lark-markdown"
+    },
+    "lark/lark-meeting": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 30,
+      "observed_source": "C:\\Users\\giova\\.trae\\plugins\\trae-remote-official\\lark\\1.0.5\\skills\\lark-meeting"
+    },
+    "lark/lark-minutes": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 1,
+      "observed_source": "C:\\Users\\giova\\.trae\\plugins\\trae-remote-official\\lark\\1.0.5\\skills\\lark-minutes"
+    },
+    "lark/lark-note": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 1,
+      "observed_source": "C:\\Users\\giova\\.trae\\plugins\\trae-remote-official\\lark\\1.0.5\\skills\\lark-note"
+    },
+    "lark/lark-okr": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 26,
+      "observed_source": "C:\\Users\\giova\\.trae\\plugins\\trae-remote-official\\lark\\1.0.5\\skills\\lark-okr"
+    },
+    "lark/lark-openapi-explorer": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 1,
+      "observed_source": "C:\\Users\\giova\\.trae\\plugins\\trae-remote-official\\lark\\1.0.5\\skills\\lark-openapi-explorer"
+    },
+    "lark/lark-shared": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 7,
+      "observed_source": "C:\\Users\\giova\\.trae\\plugins\\trae-remote-official\\lark\\1.0.5\\skills\\lark-shared"
+    },
+    "lark/lark-sheets": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 29,
+      "observed_source": "C:\\Users\\giova\\.trae\\plugins\\trae-remote-official\\lark\\1.0.5\\skills\\lark-sheets"
+    },
+    "lark/lark-skill-maker": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 1,
+      "observed_source": "C:\\Users\\giova\\.trae\\plugins\\trae-remote-official\\lark\\1.0.5\\skills\\lark-skill-maker"
+    },
+    "lark/lark-slides": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 50,
+      "observed_source": "C:\\Users\\giova\\.trae\\plugins\\trae-remote-official\\lark\\1.0.5\\skills\\lark-slides"
+    },
+    "lark/lark-task": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 18,
+      "observed_source": "C:\\Users\\giova\\.trae\\plugins\\trae-remote-official\\lark\\1.0.5\\skills\\lark-task"
+    },
+    "lark/lark-vc": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 1,
+      "observed_source": "C:\\Users\\giova\\.trae\\plugins\\trae-remote-official\\lark\\1.0.5\\skills\\lark-vc"
+    },
+    "lark/lark-vc-agent": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 1,
+      "observed_source": "C:\\Users\\giova\\.trae\\plugins\\trae-remote-official\\lark\\1.0.5\\skills\\lark-vc-agent"
+    },
+    "lark/lark-whiteboard": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 31,
+      "observed_source": "C:\\Users\\giova\\.trae\\plugins\\trae-remote-official\\lark\\1.0.5\\skills\\lark-whiteboard"
+    },
+    "lark/lark-wiki": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 14,
+      "observed_source": "C:\\Users\\giova\\.trae\\plugins\\trae-remote-official\\lark\\1.0.5\\skills\\lark-wiki"
+    },
+    "lark/lark-workflow-meeting-summary": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 1,
+      "observed_source": "C:\\Users\\giova\\.trae\\plugins\\trae-remote-official\\lark\\1.0.5\\skills\\lark-workflow-meeting-summary"
+    },
+    "lark/lark-workflow-standup-report": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 1,
+      "observed_source": "C:\\Users\\giova\\.trae\\plugins\\trae-remote-official\\lark\\1.0.5\\skills\\lark-workflow-standup-report"
+    },
+    "media/h3-film-pipeline": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 1,
+      "observed_source": null
+    },
+    "media/playwright-scraper-skill": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 15,
+      "observed_source": "/home/jagones/.openclaw/worktrees/00aba5c4106eb727/wt-17ccdbda/skills/playwright-scraper-skill"
+    },
+    "media/prime-video": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 1,
+      "observed_source": "C:\\Users\\giova\\.trae\\skills\\prime-video"
+    },
+    "meta/create-openclaw-skill": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 1,
+      "observed_source": null
+    },
+    "ops/cccc-orchestration": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 1,
+      "observed_source": null
+    },
+    "ops/comfyui-h3-video": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 19,
+      "observed_source": null
+    },
+    "ops/comfyui-image-gen": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 17,
+      "observed_source": "/home/jagones/.openclaw/worktrees/00aba5c4106eb727/wt-17ccdbda/skills/comfyui-image-gen"
+    },
+    "ops/comfyui-start": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 2,
+      "observed_source": "/home/jagones/.openclaw/worktrees/00aba5c4106eb727/wt-17ccdbda/skills/comfyui-start"
+    },
+    "ops/crashwatch": {
+      "reason": "payload lives only in the store; the same-named copies elsewhere are duplicates inside other harnesses or non-git dirs, not upstreams",
+      "files": 1,
+      "observed_source": "/home/jagones/.hermes/profiles/sabrina-cccc/skills/devops/crashwatch"
+    },
+    "ops/dgx-monitor": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 2,
+      "observed_source": null
+    },
+    "ops/dgx-to-windows": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 1,
+      "observed_source": null
+    },
+    "ops/dgx-win-mob": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 1,
+      "observed_source": null
+    },
+    "ops/diffs": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 2,
+      "observed_source": "/home/jagones/.openclaw/extensions/diffs/skills/diffs"
+    },
+    "ops/docker": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 8,
+      "observed_source": "/home/jagones/.openclaw/worktrees/00aba5c4106eb727/wt-17ccdbda/skills/docker"
+    },
+    "ops/kubernetes": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 24,
+      "observed_source": "/home/jagones/.openclaw/worktrees/00aba5c4106eb727/wt-17ccdbda/skills/kubernetes"
+    },
+    "ops/local-llm-model-fit": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 1,
+      "observed_source": null
+    },
+    "ops/local-task-runner": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 6,
+      "observed_source": null
+    },
+    "ops/local-vlm-vision": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 2,
+      "observed_source": null
+    },
+    "ops/log-forensics": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 1,
+      "observed_source": null
+    },
+    "ops/memory-governance": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 1,
+      "observed_source": null
+    },
+    "ops/mod-downloader": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 2,
+      "observed_source": null
+    },
+    "ops/openclaw-model-switch": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 5,
+      "observed_source": "/home/jagones/.openclaw/.trae/skills/openclaw-model-switch"
+    },
+    "ops/openclaw-nuke-sessions": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 4,
+      "observed_source": null
+    },
+    "ops/openrouter-catalog-refresh": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 5,
+      "observed_source": null
+    },
+    "ops/pdf-monster": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 4,
+      "observed_source": "C:\\Users\\giova\\.trae\\plugins\\trae-remote-official\\pdf-monster\\0.1.0\\skills\\pdf-monster"
+    },
+    "ops/session-cleanup": {
+      "reason": "payload lives only in the store; the same-named copies elsewhere are duplicates inside other harnesses or non-git dirs, not upstreams",
+      "files": 1,
+      "observed_source": "/home/jagones/.hermes/profiles/sabrina-cccc/skills/devops/session-cleanup"
+    },
+    "ops/session-logs": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 3,
+      "observed_source": "/home/jagones/.openclaw/worktrees/00aba5c4106eb727/wt-17ccdbda/skills/session-logs"
+    },
+    "ops/state-inspector": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 1,
+      "observed_source": null
+    },
+    "ops/task-evals": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 1,
+      "observed_source": null
+    },
+    "research/perplexity": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 4,
+      "observed_source": null
+    },
+    "research/tavily": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 5,
+      "observed_source": null
+    },
+    "tg/telegram-file-send": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 5,
+      "observed_source": null
+    },
+    "tg/telegram-multi-bot-routing": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 2,
+      "observed_source": null
+    },
+    "tg/telegram-ops-debug": {
+      "reason": "payload lives only in the store: no DGX-native repository holds this skill",
+      "files": 1,
+      "observed_source": null
+    }
+  }
+}

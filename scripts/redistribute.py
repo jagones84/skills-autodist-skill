@@ -19,7 +19,8 @@ Uso:
     python3 scripts/redistribute.py --diff     # mostra le modifiche voce per voce (non scrive)
     python3 scripts/redistribute.py --validate # valida il config, nessuna scrittura (exit 1 se errato)
     python3 scripts/redistribute.py --repair   # ripara i symlink rotti/mal puntati degli harness
-    python3 scripts/redistribute.py --adopt <src> --cat <cat>  # mette una skill nello store (copy|link)
+    python3 scripts/redistribute.py --audit    # invarianti dello store (no copie non dichiarate)
+    python3 scripts/redistribute.py --adopt <src> --cat <cat>  # mette una skill nello store (link|copy)
     python3 scripts/redistribute.py --report   # rigenera REDISTRIBUTION.md
 """
 import argparse
@@ -557,11 +558,12 @@ def _strip_ignore(strip):
     return ignore
 
 
-def adopt_skill(store, src, cat, name=None, mode="copy", strip=True, force=False, dry=False):
-    """Colloca una skill nello store (copy di default, oppure link). NON modifica la sorgente.
+def adopt_skill(store, src, cat, name=None, mode="link", strip=True, force=False, dry=False):
+    """Colloca una skill nello store (link di default, oppure copy). NON modifica la sorgente.
 
     Ritorna (destinazione, nome). Solleva ValueError se la sorgente non e' una skill
-    (manca `SKILL.md`), se il mode e' ignoto, o se la destinazione esiste (serve `force`).
+    (manca `SKILL.md`), se il mode e' ignoto, se la sorgente e' dentro lo store
+    (symlink circolare), o se la destinazione esiste (serve `force`).
     """
     src = os.path.abspath(os.path.expanduser(src))
     if not os.path.isdir(src):
@@ -570,6 +572,10 @@ def adopt_skill(store, src, cat, name=None, mode="copy", strip=True, force=False
         raise ValueError(f"non e' una skill (manca SKILL.md): {src}")
     if mode not in ("copy", "link"):
         raise ValueError(f"mode sconosciuto: '{mode}' (copy|link)")
+    store_real = os.path.realpath(store)
+    src_real = os.path.realpath(src)
+    if mode == "link" and (src_real == store_real or src_real.startswith(store_real + os.sep)):
+        raise ValueError(f"la sorgente e' dentro lo store (symlink circolare): {src}")
     name = resolve_name(src, name)
     catdir = os.path.join(store, cat)
     dest = os.path.join(catdir, name)
@@ -595,6 +601,75 @@ def wire_snippet(cat, name):
         f"  - ZERO edit se un harness seleziona `cat:{cat}` (la prende da solo).",
         f"  - altrimenti aggiungi `{name}` alla lista `skills:` dell'harness voluto.",
     ]
+
+
+# ----------------------------------------------------------------------- audit
+VENDORED_FILE = ".vendored.json"
+
+
+def load_vendored(store):
+    """Le skill dichiarate come copia vendorizzata (nessun repo nativo altrove).
+
+    Il payload di queste entry vive SOLO nello store: e' legittimo che siano
+    directory reali invece di symlink, ma devono essere dichiarate qui perche'
+    l'audit le accetti. Ogni entry: {"reason": str, "source": str|None}.
+    """
+    p = os.path.join(store, VENDORED_FILE)
+    if not os.path.isfile(p):
+        return {}
+    with open(p) as fh:
+        data = json.load(fh)
+    return data.get("skills", {})
+
+
+def audit_store(store):
+    """Verifica gli invarianti dello store. Ritorna (errori, avvisi, righe).
+
+    Invarianti:
+      1. ogni entry e' un symlink verso un target ESISTENTE;
+      2. il target non sta dentro lo store (ciclo) e sta in un repo nativo;
+      3. una directory reale e' ammessa SOLO se dichiarata in `.vendored.json`;
+      4. ogni entry espone `SKILL.md`;
+      5. ogni dichiarazione vendored corrisponde a una directory reale esistente.
+    """
+    vendored = load_vendored(store)
+    store_real = os.path.realpath(store)
+    errors, warnings, rows = [], [], []
+    seen = set()
+    for cat in categories(store):
+        for name in sorted(os.listdir(os.path.join(store, cat))):
+            fp = os.path.join(store, cat, name)
+            rel = f"{cat}/{name}"
+            declared = rel in vendored
+            seen.add(rel)
+            if os.path.islink(fp):
+                if declared:
+                    warnings.append(f"{rel}: dichiarata vendored ma e' un symlink")
+                real = os.path.realpath(fp)
+                if not os.path.exists(fp):
+                    errors.append(f"{rel}: symlink ROTTO -> {os.readlink(fp)}")
+                    rows.append((rel, "broken"))
+                    continue
+                if real == store_real or real.startswith(store_real + os.sep):
+                    errors.append(f"{rel}: symlink circolare dentro lo store -> {real}")
+                if not os.path.isfile(os.path.join(fp, "SKILL.md")):
+                    errors.append(f"{rel}: nessun SKILL.md nel target")
+                rows.append((rel, "link"))
+            elif os.path.isdir(fp):
+                if not declared:
+                    errors.append(
+                        f"{rel}: directory reale (copia) non dichiarata in {VENDORED_FILE}; "
+                        f"adotta con `--mode link` oppure dichiarala")
+                if not os.path.isfile(os.path.join(fp, "SKILL.md")):
+                    errors.append(f"{rel}: nessun SKILL.md")
+                rows.append((rel, "vendored" if declared else "copy"))
+            else:
+                errors.append(f"{rel}: entry non valida (ne' link ne' directory)")
+                rows.append((rel, "other"))
+    for rel in vendored:
+        if rel not in seen:
+            errors.append(f"{VENDORED_FILE}: dichiarazione orfana (entry inesistente): {rel}")
+    return errors, warnings, rows
 
 
 # ---------------------------------------------------------------------- report
@@ -660,10 +735,12 @@ def main():
     ap.add_argument("--validate", action="store_true")
     ap.add_argument("--diff", action="store_true")
     ap.add_argument("--repair", action="store_true", help="ripara i symlink rotti degli harness")
+    ap.add_argument("--audit", action="store_true",
+                    help="audita gli invarianti dello store (copia vs symlink, rotti, SKILL.md)")
     ap.add_argument("--adopt", metavar="SRC", help="colloca una skill nello store")
     ap.add_argument("--cat", help="categoria di destinazione per --adopt")
     ap.add_argument("--as", dest="as_name", help="nome di destinazione per --adopt")
-    ap.add_argument("--mode", default="copy", help="copy (default) | link")
+    ap.add_argument("--mode", default="link", help="link (default) | copy (sconsigliato)")
     ap.add_argument("--no-strip", action="store_true", help="con --adopt copia anche .git/dipendenze")
     ap.add_argument("--force", action="store_true", help="con --adopt sostituisce la destinazione esistente")
     ap.add_argument("--only", action="append", default=[], metavar="HARNESS",
@@ -711,6 +788,24 @@ def main():
                 print(f"ERRORE: {e}")
             sys.exit(1)
         print("config valido")
+        return
+
+    if args.audit:
+        errs, warns, rows = audit_store(store)
+        kinds = collections.Counter(k for _rel, k in rows)
+        print(f"store: {len(rows)} entry  " +
+              "  ".join(f"{k}={v}" for k, v in sorted(kinds.items())))
+        for rel, kind in rows:
+            if kind in ("broken", "copy", "other"):
+                print(f"  ! {kind:8s} {rel}")
+        for w in warns:
+            print(f"  ~ {w}")
+        for e in errs:
+            print(f"  ERRORE: {e}")
+        if errs:
+            print(f"audit FALLITO: {len(errs)} errori, {len(warns)} avvisi")
+            sys.exit(1)
+        print(f"audit OK: 0 errori, {len(warns)} avvisi")
         return
 
     if args.diff:
