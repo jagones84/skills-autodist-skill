@@ -24,6 +24,8 @@ __pycache__/
 /ops/
 /research/
 /tg/
+# opt-in external catalogs: adopted as symlinks, selected by NO harness
+/catalog/
 /_sources/
 config/redistribution.yaml
 config/*.bak*
